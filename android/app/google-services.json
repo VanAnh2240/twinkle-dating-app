@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "860838200238",
+    "project_id": "twinkle-6eefd",
+    "storage_bucket": "twinkle-6eefd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:860838200238:android:458e288dd3ec200e5bbe3f",
+        "android_client_info": {
+          "package_name": "com.example.twinkle"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC670sibwY55FtqLKb_W39K6xzpFoiwRJM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:860838200238:android:19203c8bc93c73575bbe3f",
+        "android_client_info": {
+          "package_name": "team3.twinkle_dating_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC670sibwY55FtqLKb_W39K6xzpFoiwRJM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
