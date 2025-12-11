@@ -9,7 +9,7 @@ class AppTheme {
   static const Color backgroundColor = Color.fromARGB(255, 8, 8, 8);
   static const Color textPrimaryColor = Colors.white;
   static const Color textSecondaryColor = Colors.white70;
-  static const Color errorColor = Color.fromARGB(255, 215, 123, 123);
+  static const Color errorColor = Color.fromARGB(255, 230, 7, 7);
   static const Color successColor = Color.fromARGB(255, 125, 219, 172);
   static const Color borderColor = Colors.white38;
 

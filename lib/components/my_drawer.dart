@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:twinkle/services/auth/auth_service.dart';
+import 'package:twinkle/services/auth_service.dart';
 import 'package:twinkle/pages/setting_page.dart';
 
 class MyDrawer extends StatelessWidget {

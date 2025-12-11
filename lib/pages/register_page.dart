@@ -1,32 +1,13 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:twinkle/components/login_register/custom_textfield.dart';
-import 'package:twinkle/components/login_register/custom_button.dart';
-import 'package:twinkle/services/auth/auth_service.dart';
-
-enum PasswordStrength { weak, medium, strong, veryStrong, empty }
-
-PasswordStrength checkPasswordStrength(String password) {
-  if (password.isEmpty) return PasswordStrength.empty;
-  bool hasNumber = password.contains(RegExp(r'[0-9]'));
-  bool hasSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
-
-  if (password.length < 6) return PasswordStrength.weak;
-  if (password.length < 10) return PasswordStrength.medium;
-  if (password.length >= 10 && (!hasNumber || !hasSpecial)) {
-    return PasswordStrength.strong;
-  }
-  if (password.length >= 10 && hasNumber && hasSpecial) {
-    return PasswordStrength.veryStrong;
-  }
-  return PasswordStrength.weak;
-}
+import 'package:get/get.dart';
+import 'package:twinkle/routes/app_routes.dart';
+import 'package:twinkle/controllers/auth_controller.dart';
+import 'package:twinkle/themes/theme.dart';
 
 class RegisterPage extends StatefulWidget {
-  final void Function()? onTap;
-
   const RegisterPage({
     super.key,
-    required this.onTap,
   });
 
   @override
@@ -35,18 +16,23 @@ class RegisterPage extends StatefulWidget {
 
 class RegisterPageState extends State<RegisterPage> {
   // controllers
+  final formKey = GlobalKey<FormState>();
   final firstnameController = TextEditingController();
-  final TextEditingController lastnameController = TextEditingController();
-  final TextEditingController emailController = TextEditingController();
-  final TextEditingController pwController = TextEditingController();
-  final TextEditingController confirmPwController = TextEditingController();
+  final lastnameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
 
-  bool obscureText = true;
+  final AuthController _authController = Get.find<AuthController> ();
 
-  // VALIDATION PW + TEARMS
+  bool obscurePassword = true;
+  bool obscureConfirmPassword = true;
+
+  // VALIDATION + TEARMS
   bool agreeTerms = false;
+  bool isFormValid = false;
   String password = '';
-  bool get isLengthValid => password.length >= 8;
+  bool get isLengthValid => password.length >= 6;
   bool get hasNumber => password.contains(RegExp(r'[0-9]'));
   bool get hasSpecial => password.contains(RegExp(r'[!@#$%^&*]'));
   bool get allValid => isLengthValid && hasNumber && hasSpecial;
@@ -62,283 +48,403 @@ class RegisterPageState extends State<RegisterPage> {
     firstnameController.dispose();
     lastnameController.dispose();
     emailController.dispose();
-    pwController.dispose();
-    confirmPwController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
-  }
-
-  // match password
-  void register(BuildContext context) {
-    final auth = AuthService();
-    if (pwController.text == confirmPwController.text) {
-      try {
-        auth.registerWithEmailPassword(
-          emailController.text,
-          pwController.text,
-          firstnameController.text,
-          lastnameController.text,
-        );
-      } catch (e) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(e.toString()),
-          ),
-        );
-      }
-    } else {
-      showDialog(
-        context: context,
-        builder: (context) => const AlertDialog(
-          title: Text("Passwords do not match!"),
-        ),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+      body: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(15),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  
+                  const SizedBox(height: 20),
               
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      //logo
-                      Icon(
-                        Icons.message,
-                        size: 60,
+                  // logo 
+                  Icon(
+                    Icons.message,
+                    size: 60,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+              
+                  const SizedBox(height: 10),
+                  //message
+                  Text(
+                    "Let's create an account for you",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+              
+                  const SizedBox(height: 25),
+              
+                  //name textfield
+                  // Row(
+                  //   children: [
+                  //     Expanded(
+                  //       child: TextFormField(
+                  //         controller: firstnameController,
+                  //         decoration: InputDecoration(
+                  //           labelText: 'First name',
+                  //           prefixIcon: Icon(
+                  //             Icons.person,
+                  //             color: Theme.of(context).colorScheme.primary,
+                  //           ),
+                  //           hintText: "First name",
+                  //         ),
+                  //         validator: (value) {
+                  //           if (value!.isEmpty) {
+                  //             return 'Enter first name';
+                  //           }
+                  //           return null;
+                  //         },
+                  //       ),
+                  //     ),
+              
+                  //     const SizedBox(width: 10), // khoảng cách giữa 2 ô
+              
+                  //     Expanded(
+                  //       child: TextFormField(
+                  //         controller: lastnameController,
+                  //         decoration: InputDecoration(
+                  //           labelText: 'Last name',
+                  //           prefixIcon: Icon(
+                  //             Icons.person,
+                  //             color: Theme.of(context).colorScheme.primary,
+                  //           ),
+                  //           hintText: "Last name",
+                  //         ),
+                  //         validator: (value) {
+                  //           if (value!.isEmpty) {
+                  //             return 'Enter last name';
+                  //           }
+                  //           return null;
+                  //         },
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+               
+                  const SizedBox(height: 15),
+                        
+                  // email textfield
+                  TextFormField(
+                    controller: emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(
+                        Icons.email,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-
-                      const SizedBox(height: 10),
-                      //message
-                      Text(
-                        "Let's create an account for you",
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontSize: 16,
-                        ),
+                      hintText: "Email",
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        isFormValid = (formKey.currentState?.validate() ?? false);
+                      });
+                    },
+                    validator: (value) {
+                      if (value!.isEmpty) {
+                        return 'Please enter your email';
+                      }
+                      if (!GetUtils.isEmail(value)) {
+                        return 'Please enter a valid email';
+                      }
+                      return null;
+                    },
+                  ),
+                                      
+                  const SizedBox(height: 15),
+              
+                  // pw textfield
+                  TextFormField(
+                    controller: passwordController,
+                    obscureText: obscurePassword,
+                    decoration: InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(
+                        Icons.password,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-
-                      const SizedBox(height: 25),
-                      
-                      //last name textfield
-                      CustomTextfield(
-                        controller: emailController,
-                        labelText: 'Last name',
-                        icon: Icons.person,
-                      ),
-                      
-                      const SizedBox(height: 5),
-                      
-                      // email textfield
-                      CustomTextfield(
-                        controller: emailController,
-                        labelText: 'Email',
-                        icon: Icons.person,
-                      ),
-                                        
-
-                      // email textfield
-                      CustomTextfield(
-                        controller: emailController,
-                        labelText: "Email",
-                        obscureText: false,
-                        icon: Icons.person,
-                      ),
-
-                      const SizedBox(height: 5),
-
-                      // pw textfield
-                      CustomTextfield(
-                        controller: pwController,
-                        labelText: 'Password',
-                        icon: Icons.password,
-                        isPassword: true,
-                        obscureText: obscureText,
-                        onToggleObscure: () {
+                      hintText: "Password",
+                      suffixIcon: IconButton(
+                        onPressed: () {
                           setState(() {
-                            obscureText = !obscureText;
+                            obscurePassword = !obscurePassword;
                           });
                         },
+                        icon: Icon(
+                          obscurePassword ? Icons.visibility : Icons.visibility_off,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        password = value;
+                        isFormValid = (formKey.currentState?.validate() ?? false);
+                      });
+                    },
+                    validator: (value) {
+                      if (value!.isEmpty) {
+                        return 'Please enter your password';
+                      }
+                      if (value.length < 6) {
+                        return 'Password must be at least 6 characters';
+                      }
+                      if (!value.contains(RegExp(r'[0-9]'))) {
+                        return 'Password must contain at least one number';
+                      }
+                      if (!value.contains(RegExp(r'[!@#$%^&*]'))) {
+                        return 'Password must contain at least one special character';
+                      }
+                      return null;
+                    },
+                  ),
+              
+                  const SizedBox(height: 15),
+              
+                  // confirm pw textfield
+                  TextFormField(
+                    controller: confirmPasswordController,
+                    obscureText: obscureConfirmPassword,
+                    decoration: InputDecoration(
+                      labelText: 'Confirm password',
+                      prefixIcon: Icon(
+                        Icons.password,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      hintText: "Confirm password",
+                      suffixIcon: IconButton(
+                        onPressed: () {
+                          setState(() {
+                            obscureConfirmPassword = !obscurePassword;
+                          });
+                        },
+                        icon: Icon(
+                          obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        isFormValid = (formKey.currentState?.validate() ?? false);
+                      });
+                    },
+                    validator: (value) {
+                      if (value!.isEmpty) {
+                        return 'Please confirm your password';
+                      }
+                      if (value!= passwordController.text) {
+                        return 'Passwords do not match';
+                      };
+                      return null;
+                    },
+                  ),
+              
+                  const SizedBox(height: 20),
+              
+                  // pw  checklist
+                  //include 8 char
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isLengthValid
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: checkboxColor(isLengthValid),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "At least 6 characters",
+                          style: TextStyle(color: textColor(isLengthValid)),
+                        ),
+                      ],
+                    ),
+                  ),
+              
+                  //include number
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          hasNumber
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: checkboxColor(hasNumber),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Include a number",
+                          style: TextStyle(color: textColor(hasNumber)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  //include 1 special char
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          hasSpecial
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: checkboxColor(hasSpecial),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          "Include 1 special character",
+                          style: TextStyle(color: textColor(hasSpecial)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height:  10),
+                  
+                  //agree to terms
+                  Row(
+                    children: [
+                      Checkbox(
+                        value: agreeTerms,
                         onChanged: (value) {
                           setState(() {
-                            password = value;
+                            agreeTerms = value ?? false;
                           });
                         },
+                        activeColor: Colors.pinkAccent,
+                        checkColor: Colors.white,
                       ),
-
-                      const SizedBox(height: 5),
-
-                      // confirm pw textfield
-                      CustomTextfield(
-                        controller: confirmPwController,
-                        labelText: "Confirm Password",
-                        icon: Icons.password,
-                        isPassword: true,
-                        obscureText: obscureText,
-                        onToggleObscure: () {
-                          setState(() {
-                            obscureText = !obscureText;
-                          });
-                        },
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // pw  checklist
-
-                      //include 8 char
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isLengthValid
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color: checkboxColor(isLengthValid),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "At least 8 characters",
-                              style: TextStyle(color: textColor(isLengthValid)),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      //include number
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
-                        child: Row(
-                          children: [
-                            Icon(
-                              hasNumber
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color: checkboxColor(hasNumber),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "Include a number",
-                              style: TextStyle(color: textColor(hasNumber)),
-                            ),
-                          ],
-                        ),
-                      ),
-                     
-                      //include 1 special char
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
-                        child: Row(
-                          children: [
-                            Icon(
-                              hasSpecial
-                                  ? Icons.check_circle
-                                  : Icons.radio_button_unchecked,
-                              color: checkboxColor(hasSpecial),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "Include 1 special character",
-                              style: TextStyle(color: textColor(hasSpecial)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height:  10),
-                      
-                      //agree to terms
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
-                        child: Row(
-                          children: [
-                            Checkbox(
-                              value: agreeTerms,
-                              onChanged: (value) {
-                                setState(() {
-                                  agreeTerms = value ?? false;
-                                });
-                              },
-                              activeColor: Colors.pinkAccent,
-                              checkColor: Colors.white,
-                            ),
-                            Expanded(
-                              child: RichText(
-                                text: TextSpan(
-                                  text: 'I agree to the ',
-                                  style: Theme.of(context).textTheme.bodyLarge,
-                                  children: [
-                                    TextSpan(
-                                        text: 'Terms of Service',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.pinkAccent)),
-                                    TextSpan(text: ' and ', style: Theme.of(context).textTheme.bodyLarge,),
-                                    TextSpan(
-                                        text: 'Privacy Policy',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.pinkAccent)),
-                                  ],
-                                ),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            text: 'I agree to the ',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                            children: [
+                              TextSpan(
+                                  text: 'Terms of Service',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.pinkAccent),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () {Get.toNamed('/');}
                               ),
-                            )
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      //register button
-                      CustomButton(
-                        text: "Create account  ",
-                        onTap : agreeTerms ? () => register(context) : null,
-                      ),
-
-                      const SizedBox(height: 15),
-
-                      // Have an account login now
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Have an account?",
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: widget.onTap,
-                            child: Text(
-                              " Login now",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: const Color.fromARGB(255, 251, 87, 141),
+                              TextSpan(text: ' and ', style: Theme.of(context).textTheme.bodyLarge,),
+                              TextSpan(
+                                  text: 'Privacy Policy',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.pinkAccent),
+                                  recognizer: TapGestureRecognizer()
+                                    ..onTap = () {Get.toNamed('/');}
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                      
-                    ]
+                        ),
+                      )
+                    ],
                   ),
-                ),
-              ),
+                            
+                  const SizedBox(height: 20),
               
-            ],
+                  //register button
+                  Obx(
+                    () => SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _authController.isLoading ? null : () {
+                          if (formKey.currentState?.validate() ?? false) {
+                            if (!agreeTerms) {
+                              return;
+                            }
+                            _authController.registerWithEmailPassword(
+                              emailController.text.trim(), 
+                              passwordController.text,
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (!_authController.isLoading && isFormValid && agreeTerms)
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey,
+                        ),
+                        child: _authController.isLoading 
+                          ? SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text("Create account"),
+                      ),
+                    ),
+                  ),
+              
+                  const SizedBox(height: 20),
+              
+                  //line
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: AppTheme.borderColor)),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          "OR",
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      Expanded(child: Divider(color: AppTheme.borderColor))
+                    ],
+                  ),
+              
+                  const SizedBox(height: 20),
+              
+                  // Have an account login now
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        "Have an account ? ",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      GestureDetector(
+                        onTap: () => Get.toNamed(AppRoutes.login),
+                        child: Text(
+                          " Login now",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: const Color.fromARGB(255, 251, 87, 141),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+              ]
+                      ),
+            ),
           ),
-        ),
-      );
+      ),
+    );  
   }
 }

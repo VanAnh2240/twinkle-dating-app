@@ -1,8 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:twinkle/models/users_model.dart';
 import 'package:twinkle/routes/app_routes.dart';
-import 'package:twinkle/services/auth/auth_service.dart';
+import 'package:twinkle/services/auth_service.dart';
 import 'package:get/get.dart';
+import 'package:twinkle/services/user_service.dart';
 
 
 class AuthController extends GetxController {
@@ -22,18 +23,20 @@ class AuthController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _usersModel.bindStream(_authService.authStateChanges);
+    _user.bindStream(_authService.authStateChanges);
     ever(_user, _handleaAuthStateChange);
   }
 
-  void _handleaAuthStateChange(User? user) {
+  Future<void> _handleaAuthStateChange(User? user) async {
     if (user == null) {
       if (Get.currentRoute != AppRoutes.login) {
         Get.offAllNamed(AppRoutes.login);
       }
     } else {
-      if (Get.currentRoute != AppRoutes.main) {
-        Get.offAllNamed(AppRoutes.main);
+      _usersModel.value = await UserService().getUserById(user.uid);
+
+      if (Get.currentRoute != AppRoutes.home) {
+        Get.offAllNamed(AppRoutes.home);
       }
     }
     if (!_isinitialized.value) {
@@ -45,7 +48,7 @@ class AuthController extends GetxController {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser != null) {
       _user.value = currentUser;
-      Get.offAllNamed(AppRoutes.main);
+      Get.offAllNamed(AppRoutes.home);
     } else {
       Get.offAllNamed(AppRoutes.login);
     }
@@ -59,7 +62,7 @@ class AuthController extends GetxController {
       UsersModel? usersModel = await _authService.signInWithEmailPassword(email, password);
       if (usersModel != null) {
         _usersModel.value = usersModel;
-        Get.offAllNamed(AppRoutes.main);
+        Get.offAllNamed(AppRoutes.home);
       }
     } catch (e) {
       _error.value = e.toString();
@@ -70,20 +73,17 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<void> registerWithEmailPassword(String email, String password, String first_name, String last_name) async {
+  Future<void> registerWithEmailPassword(String email, String password) async {
     try {
       _isLoading.value = true;
       _error.value = '';
       
-      UsersModel? usersModel = await _authService.registerWithEmailPassword(email, password, first_name, last_name);
-      if (usersModel != null) {
-        _usersModel.value = usersModel;
-        Get.offAllNamed(AppRoutes.main);
-      }
+      final usersModel = await _authService.registerWithEmailPassword(email, password);
+      _usersModel.value = usersModel;
+      
     } catch (e) {
       _error.value = e.toString();
       Get.snackbar('Error', "Failed to create account");
-      print(e);
     } finally {
       _isLoading.value = false;
     }

@@ -1,194 +1,141 @@
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:flutter/material.dart';
-// import 'package:twinkle/components/chatting/chat_bubble.dart';
-// import 'package:twinkle/components/chatting/my_textfield.dart';
-// import 'package:twinkle/services/auth/auth_service.dart';
-// import 'package:twinkle/services/chat/chat_service.dart';
-// import 'package:image_picker/image_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:twinkle/controllers/message_controller.dart';
+import '../controllers/match_controller.dart';
+import '../controllers/auth_controller.dart';
+import '../models/messages_model.dart';
 
+class ChatPage extends StatelessWidget {
+  final MatchController matchController = Get.put(MatchController());
+  final MessageController messageController = Get.put(MessageController());
+  final AuthController authController = Get.find<AuthController>();
 
-// class ChatPage extends StatefulWidget {
-//   final String receiverEmail;
-//   final String receiverID;
+  final ScrollController scrollController = ScrollController();
+  final messageTextController = TextEditingController();
 
-//   ChatPage({
-//     super.key,
-//     required this.receiverEmail,
-//     required this.receiverID,
-//   });
+  @override
+  Widget build(BuildContext context) {
+    final args = Get.arguments;
+    final String chatroomId = args["chatroomId"];
+    final Map<String, dynamic> otherUser = args["otherUser"];
 
-//   @override
-//   State<ChatPage> createState() => _ChatPageState();
-// }
+    messageController.listenChatRooms(); // để load realtime
 
-// class _ChatPageState extends State<ChatPage> {
-//   //text controller 
-//   final TextEditingController _messageController = TextEditingController();
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            CircleAvatar(
+              backgroundImage: NetworkImage(otherUser["profile_picture"] ?? ""),
+            ),
+            SizedBox(width: 10),
+            Text(
+              "${otherUser['first_name']} ${otherUser['last_name']}",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            )
+          ],
+        ),
+      ),
 
-//   //chat & auth services
-//   final ChatService _chatService = ChatService();
-//   final AuthService _authService = AuthService();
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<List<MessagesModel>>(
+              stream: messageController.getMessages(chatroomId),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return Center(child: CircularProgressIndicator());
+                }
 
-//   // textfield focus
-//   FocusNode myFocusNode = FocusNode();
+                final messages = snapshot.data!;
 
-//   @override
-//   void initState() {
-//     super.initState();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (scrollController.hasClients) {
+                    scrollController.jumpTo(
+                      scrollController.position.maxScrollExtent,
+                    );
+                  }
+                });
 
-//     myFocusNode.addListener(() {
-//       if (myFocusNode.hasFocus) {
-//         //delay to show up keyboard -> calculate remaining space -> scroll down
-//         Future.delayed(
-//           const Duration(milliseconds: 500),
-//           () => scrollDown(),
-//         );
-//       }
-//     });
+                return ListView.builder(
+                  controller: scrollController,
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = messages[index];
+                    final bool isMe = msg.sender_id == authController.user!.uid;
 
-//     //wait for listview to built -> scroll to bottom
-//     Future.delayed(const Duration(milliseconds: 500), () => scrollDown(),);
-//   }
+                    return Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        padding: EdgeInsets.all(12),
+                        constraints: BoxConstraints(maxWidth: Get.width * 0.7),
+                        decoration: BoxDecoration(
+                          color: isMe ? Colors.blue : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          msg.message_text,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
 
-//   @override
-//   void dispose() {
-//     myFocusNode.dispose();
-//     _messageController.dispose();
-//     super.dispose();
-//   }
+          _buildMessageInput(chatroomId, otherUser["user_id"]),
+        ],
+      ),
+    );
+  }
 
-//   final ScrollController _scrollController = ScrollController();
-//   void scrollDown() {
-//     _scrollController.animateTo(
-//       _scrollController.position.maxScrollExtent,
-//       duration: const Duration(seconds: 1),
-//       curve: Curves.fastOutSlowIn,
-//     );
-//   }
+  /// 🔥 Input box + send button
+  Widget _buildMessageInput(String chatroomId, String receiverId) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: messageTextController,
+              decoration: InputDecoration(
+                hintText: "Type a message...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 15),
+              ),
+            ),
+          ),
+          SizedBox(width: 8),
 
+          /// SEND BUTTON
+          GestureDetector(
+            onTap: () async {
+              final text = messageTextController.text.trim();
+              if (text.isEmpty) return;
 
+              await messageController.sendMessage(chatroomId, receiverId, text);
 
-
-//   //send message
-//   void sendMessage() async {
-//     //if there is sth inside textfield
-//     if (_messageController.text.isNotEmpty) {
-//       //send the message
-//       await _chatService.sendMessage(
-//         widget.receiverID, 
-//         _messageController.text
-//       );
-
-//       //clear text controller
-//       _messageController.clear();
-//     }
-//     scrollDown();
-//   }
-
-//   @override //UI
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: Text(widget.receiverEmail)),
-//       body: Column(
-//         children: [
-//           //display all messages
-//           Expanded(
-//             child: _buildMessageList(),
-//           ),
-
-//           //user input
-//           _buildUserInput(),
-  
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildMessageList() {
-//     String senderID = _authService.getCurrentUser()!.uid;
-//     return StreamBuilder(
-//       stream: _chatService.getMessages(senderID, widget.receiverID), 
-//       builder: (context, snapshot) {
-//         //error
-//         if (snapshot.hasError) {
-//           return Text("Error");
-//         }
-        
-//         // loading..
-//         if (snapshot.connectionState == ConnectionState.waiting) {
-//           return Text("Loading..");
-//         }
-
-//         //return list view 
-//         return ListView(
-//           controller: _scrollController,
-//           children: 
-//             snapshot.data!.docs.map((doc) => _buildMessageItem(doc)).toList(),
-//         );
-
-//       },
-//     );
-//   }
-
-//   Widget _buildMessageItem(DocumentSnapshot doc) {
-//     Map<String,dynamic> data = doc.data() as Map<String, dynamic>;
-    
-//     //is current user
-//     bool isCurrentUser = data['senderID'] == _authService.getCurrentUser()!.uid;
-
-//     //align text field
-//     var alignment = isCurrentUser ? Alignment.centerRight : Alignment.centerLeft;
-
-
-//     return Container(
-//       alignment: alignment,
-//       child: Column(
-//         crossAxisAlignment: isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-//         children: [
-//           ChatBubble(
-//             isCurrentUser: isCurrentUser, 
-//             message: data['message'],
-//           )
-//         ],
-//       ),
-//       );
-//   }
-
-//   //buid message input
-//   Widget _buildUserInput() {
-//     return Padding(
-//       padding: const EdgeInsets.only(bottom: 25.0),
-//       child: Row(
-//         children: [
-          
-//           //textfield
-//           Expanded(
-//             child: MyTextfield(
-//               controller: _messageController,
-//               hintText: "Type something...", 
-//               obscureText: false, 
-//               focusNode: myFocusNode,
-//             ),
-//           ),
-      
-//           //send button
-//           Container(
-//             decoration: BoxDecoration(
-//               color: const Color.fromARGB(255, 227, 160, 239),
-//               shape: BoxShape.circle,
-              
-//             ),
-
-//             child: IconButton(
-//               onPressed: sendMessage, 
-//               icon: const Icon(
-//                 Icons.arrow_upward,
-//                 color: Colors.white,
-//               ),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
+              messageTextController.clear();
+            },
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.blue,
+              child: Icon(Icons.send, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

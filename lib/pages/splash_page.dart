@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twinkle/services/auth/auth_controller.dart';
+import 'package:twinkle/controllers/auth_controller.dart';
 import 'package:twinkle/themes/theme.dart';
 import 'package:twinkle/routes/app_routes.dart';
 
@@ -22,7 +22,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     super.initState();
 
     _animationController = AnimationController(
-      duration: const Duration(seconds: 3),
+      duration: const Duration(seconds: 2),
       vsync: this,
     );
 
@@ -52,7 +52,7 @@ class _SplashPageState extends State<SplashPage> with TickerProviderStateMixin {
     final authController = Get.put(AuthController(), permanent: true);
     
     if (authController.isAuthenticated) {
-      Get.offAllNamed(AppRoutes.main);
+      Get.offAllNamed(AppRoutes.home);
     } else {
       Get.offAllNamed(AppRoutes.login);
     }
