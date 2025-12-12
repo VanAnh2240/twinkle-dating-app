@@ -10,9 +10,9 @@ class MatchController extends GetxController {
   final RxList<String> chatRooms = <String>[].obs;
   final RxBool isLoading = false.obs;
 
-  final RxList<UsersModel> potentialMatches = <UsersModel>[].obs;
+  final RxList<UsersModel> matches = <UsersModel>[].obs;
 
-  Future<void> createMatch(String receiverID) async {
+  Future<void> createMatch(String receiverID, Object object) async {
     try {
       isLoading.value = true;
       String currentID = Get.find<AuthController>().user!.uid;
@@ -30,8 +30,16 @@ class MatchController extends GetxController {
     await _matchService.unMatch(currentID, other);
   }
 
-  Future<void> loadPotentialMatches() async {
-    String currentID = Get.find<AuthController>().user!.uid;
-    potentialMatches.value = await UserService().getRandomUsers(currentID);
+  Future<void> getMatches() async {
+    try {
+      String currentID = Get.find<AuthController>().user!.uid;
+
+      List<UsersModel> users = await UserService().getUsers(currentID);
+
+      matches.assignAll(users);
+    } catch (e) {
+      print("Error getMatches: $e");
+    }
+
   }
 }

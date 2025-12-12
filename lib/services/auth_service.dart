@@ -39,36 +39,32 @@ class AuthService {
         email: email,
         password: password,
       );
-
+      
       User? user = result.user;
-      if (user == null) {
-        throw Exception("Failed to register user");
+      if (user != null) {
+        final userModel = UsersModel(
+          first_name: null,
+          last_name: null,
+          email: email,
+          password_hash: password,
+          gender: null,
+          date_of_birth: null,
+          bio: null,
+          location: null,
+          profile_picture: null,
+          is_online: true,
+          last_seen: DateTime.now(),
+          created_at: DateTime.now(),
+        );
+
+        await _UserService.createUser(user.uid, userModel);
+        return userModel;
       }
-
-      final newUser = UsersModel(
-        first_name: null,
-        last_name: null,
-        email: email,
-        password_hash: password,
-        gender: null,
-        date_of_birth: null,
-        bio: null,
-        location: null,
-        profile_picture: null,
-        is_online: true,
-        last_seen: DateTime.now(),
-        created_at: DateTime.now(),
-      );
-
-      await _UserService.createUser(user.uid, newUser);
-
-      return await _UserService.getUserById(user.uid);
-
+      throw Exception("Failed to register user");
     } on FirebaseAuthException catch (e) {
       throw Exception("Failed to register: ${e.code}");
     }
   }
-
 
   // Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {

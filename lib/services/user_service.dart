@@ -7,6 +7,14 @@ class UserService {
   // Create user FirebaseAuth
   Future<void> createUser(String uid, UsersModel user) async {
     try {
+      final data = user.toMap();
+
+      if (data['last_seen'] is DateTime) {
+        data['last_seen'] = Timestamp.fromDate(data['last_seen']);
+      }
+      if (data['created_at'] is DateTime) {
+        data['created_at'] = Timestamp.fromDate(data['created_at']);
+      }
       await _firestore.collection('Users').doc(uid).set(user.toMap());
     } catch (e) {
       throw Exception("Failed to create user: $e");
@@ -16,7 +24,7 @@ class UserService {
   // Get user by uid
   Future<UsersModel> getUserById(String userId) async {
     final doc = await FirebaseFirestore.instance
-        .collection("users")
+        .collection("Users")
         .doc(userId)
         .get();
 
@@ -53,38 +61,22 @@ class UserService {
   }
 
 
-  //random user
-  Future<List<UsersModel>> getRandomUsers(String currentUserId) async {
+  //get users
+  Future<List<UsersModel>> getUsers(String currentUserId) async {
     try {
-      // 1. Lấy danh sách user đã like/dislike để bỏ qua
-      final actionsSnapshot = await _firestore
-          .collection("swipes")
-          .doc(currentUserId)
-          .get();
+      // get all collection 'Users'
+      QuerySnapshot snapshot = await _firestore.collection('Users').get();
 
-      List<String> excludedIds = [];
+      // map to UsersModel and exclude current user
+      List<UsersModel> users = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['user_id'] = doc.id; // thêm user_id từ document ID
+        return UsersModel.fromMap(data);
+      }).where((user) => user.id != currentUserId).toList();
 
-      if (actionsSnapshot.exists) {
-        excludedIds = List<String>.from(actionsSnapshot.data()!["excluded"] ?? []);
-      }
-
-      // Luôn loại bỏ chính mình
-      excludedIds.add(currentUserId);
-
-      // 2. Query Firestore: lấy tất cả user trừ excludedIds
-      QuerySnapshot snapshot = await _firestore.collection("users").get();
-
-      List<UsersModel> allUsers = snapshot.docs
-          .map((doc) => UsersModel.fromMap(doc.data() as Map<String, dynamic>))
-          .where((u) => !excludedIds.contains(u.id))
-          .toList();
-
-      // 3. Shuffle → lấy ngẫu nhiên 10 user
-      allUsers.shuffle();
-      return allUsers.take(10).toList();
-
+      return users;
     } catch (e) {
-      print("ERROR getRandomUsers: $e");
+      print("Error getUsers: $e");
       return [];
     }
   }

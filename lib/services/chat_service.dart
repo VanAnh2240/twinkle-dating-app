@@ -7,7 +7,7 @@ class ChatService {
 
   Future<void> sendMessage(String chatRoomID, String receiverID, String text) async {
     DocumentSnapshot room =
-        await _firestore.collection("chat_rooms").doc(chatRoomID).get();
+        await _firestore.collection("ChatRooms").doc(chatRoomID).get();
 
     if (!(room.data() as Map)["is_active"]) {
       throw Exception("This chat room is inactive (unmatched).");
