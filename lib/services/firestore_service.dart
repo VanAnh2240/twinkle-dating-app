@@ -15,13 +15,6 @@ class FirestoreService {
   Future<void> createUser(String uid, UsersModel user) async {
     try {
       final data = user.toMap();
-
-      if (data['last_seen'] is DateTime) {
-        data['last_seen'] = Timestamp.fromDate(data['last_seen']);
-      }
-      if (data['created_at'] is DateTime) {
-        data['created_at'] = Timestamp.fromDate(data['created_at']);
-      }
       await _firestore.collection('Users').doc(uid).set(data);
       print("User document created: $uid");
 
@@ -88,7 +81,7 @@ class FirestoreService {
 
   // Get all User Stream
   Stream<List<UsersModel>> getAllUsersStream(){
-    return _firestore.collection('users').snapshots().map(
+    return _firestore.collection('Users').snapshots().map(
       (snapshot) => snapshot.docs.map(
         (doc) => UsersModel.fromMap(doc.data())
       ).toList()
