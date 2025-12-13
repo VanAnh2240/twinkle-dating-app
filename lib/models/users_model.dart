@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 class UsersModel {
+  //khai báo các biến 
+  // Có ? => có thể null
+  // final => không thể thay đổi giá trị
   final String user_id;
   final String first_name;
   final String last_name;
@@ -15,6 +18,7 @@ class UsersModel {
   final DateTime created_at;
   final DateTime last_seen;
 
+  //khai báo các thuộc tính của model
   UsersModel({
     required this.user_id,
     required this.first_name,
@@ -33,8 +37,6 @@ class UsersModel {
     required this.last_seen,
 
   });
-
-  Object? get id => null;
 
   // Convert to Firestore map
   Map<String, dynamic> toMap() {
@@ -79,6 +81,8 @@ class UsersModel {
     );
   }
 
+
+  //hàm copy with 
   UsersModel copyWith({
     String? user_id,
     String? first_name,

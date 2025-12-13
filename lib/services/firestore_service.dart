@@ -7,7 +7,7 @@ import 'package:twinkle/models/notifications_model.dart';
 import 'package:twinkle/models/users_model.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; //gọi hàm firebase
   
   //=======================================USERS=======================================//
 
@@ -15,8 +15,8 @@ class FirestoreService {
   Future<void> createUser(String uid, UsersModel user) async {
     try {
       final data = user.toMap();
-      await _firestore.collection('Users').doc(uid).set(data);
-      print("User document created: $uid");
+      await _firestore.collection('Users').doc(uid).set(data); //cách create collections trong firebase
+      print("User document created: $uid");  
 
     } catch (e) {
       throw Exception("Failed to create user: $e");
@@ -33,7 +33,7 @@ class FirestoreService {
     if (!doc.exists) {
       throw Exception("User not found");
     }
-
+    print("Get user by id");
     return UsersModel.fromMap(doc.data()!..['user_id'] = doc.id);
   }
 
@@ -48,6 +48,7 @@ class FirestoreService {
           'last_seen': Timestamp.fromDate(DateTime.now()),
         });
       }
+      print("Update user online status");
     } catch (e) {
       throw Exception("Failed to update user online status: $e");
     }
@@ -57,6 +58,7 @@ class FirestoreService {
   Future<void> deleteUser(String uid) async {
     try {
       await _firestore.collection('Users').doc(uid).delete();
+      print("User document deleted: $uid");
     } catch (e) {
       throw Exception("Failed to delete user: $e");
     }
@@ -74,6 +76,7 @@ class FirestoreService {
   Future<void> updateUser(UsersModel user) async {
     try{
       await _firestore.collection('Users').doc(user.user_id).update(user.toMap());
+      print("Update user");
     }catch(e){
       throw Exception('Failed to update profile');
     }
@@ -117,7 +120,6 @@ class FirestoreService {
         });
         
         await createMatch(currentUserID, targetUserID);
-
         return;
       }else {
         //tạo request match
@@ -147,6 +149,7 @@ class FirestoreService {
       await _firestore.collection('MatchRequests')
         .doc(request.request_id)
         .set(request.toMap());
+      print("Create match request");
     }catch(e){
       throw Exception("Failed to request match: $e");
     }
@@ -168,6 +171,7 @@ class FirestoreService {
         matched_at: DateTime.now(),
       );
       await _firestore.collection("Matches").doc(matchID).set(match.toMap());
+      print("Create match");
 
       //notification
       await createNotification(
@@ -178,12 +182,9 @@ class FirestoreService {
               sent_at: DateTime.now(),
             )   
           );
-
-
     }catch(e) {
       throw Exception("Failed to create match: $e");
     }
-
   }
 
   //unmatch -> create notification + inactive chat + update status match request
@@ -198,6 +199,8 @@ class FirestoreService {
 
       //delete match
       await _firestore.collection('Matches').doc(matchID).delete();
+      print("Unmatch");
+
 
       //notification cho unmatcher
       await createNotification (
@@ -225,6 +228,7 @@ class FirestoreService {
         await requestQuery.docs.first.reference.update({
           'status': 'unmatched',
         });
+        print("Update status match request");
       }
 
     }
@@ -253,6 +257,7 @@ class FirestoreService {
       
       //un block
       await _firestore.collection('BlockedUsers').doc(blockID).delete();
+      print("Unblock");
     }
     catch(e) {
       throw Exception("Failed to unblock: $e");
@@ -273,6 +278,7 @@ class FirestoreService {
       };
 
       await _firestore.collection('BlockedUsers').doc(blockID).set(block);
+      print("Create blocked user");
     } catch (e) {
       throw Exception("Failed to create blocked user: $e");
     }
@@ -340,6 +346,7 @@ class FirestoreService {
         .doc(matchID).get();
 
       if (doc.exists) {
+        print("Get matches");
         return MatchesModel.fromMap(doc.data() as Map<String, dynamic>);
       }
 
@@ -359,6 +366,7 @@ class FirestoreService {
         .where('blocked_user_id', isEqualTo: userID)
         .get();
 
+      print("Checked if user is blocked");
       return query.docs.isNotEmpty;
 
     }catch(e) {
@@ -412,6 +420,7 @@ class FirestoreService {
         );
 
         await chatRef.set(newChat.toMap());
+        print("Create chat");
       }
       else{
         ChatsModel existingChat = ChatsModel.fromMap(
@@ -424,6 +433,7 @@ class FirestoreService {
           await restoreChatForUser(chatID, user2ID);
         }
       }
+      print("Get chat");
       return chatID;
 
     }catch(e) {
@@ -454,6 +464,7 @@ class FirestoreService {
           .update({
         'is_enable': false,
       });
+      print("Inactive chat");
     } catch (e) {
       throw Exception("Failed to inactivate chat: $e");
     }
@@ -469,6 +480,7 @@ class FirestoreService {
         'last_message_sender_id': message.sender_id,
         'update_at': DateTime.now().millisecondsSinceEpoch,
       });
+      print("Updated chat last message");
     }catch(e) {
       throw Exception("Failed to update chat last messages: $e");
     }
@@ -480,6 +492,7 @@ class FirestoreService {
       await _firestore.collection('Chats').doc(chatID).update({
         'last_seen_by.${userID}':DateTime.now().millisecondsSinceEpoch,
       });
+      print("Updated user last seen");
     }catch(e) {
       throw Exception("Failed to update user last seen: $e");
     }
@@ -494,7 +507,7 @@ class FirestoreService {
       });
 
       await _firestore.collection('Chats').doc(chatID).delete();
-
+      print("Deleted chat for user");
     }catch(e) {
       throw Exception("Failed to delete chat for user: $e");
     }
@@ -506,6 +519,7 @@ class FirestoreService {
       await _firestore.collection('Chats').doc(chatID).update({
         'deleted_by.$userID': false,
       });
+      print("Restore chat for user");
     }catch(e) {
       throw Exception("Failed to restore chat for user: $e");
     }
@@ -518,6 +532,7 @@ class FirestoreService {
           .update({
             'unread_count': count,
           });
+      print("Updated unread messages");
     }catch(e) {
       throw Exception("Failed to upload unread messages: $e");
     }
@@ -529,6 +544,7 @@ class FirestoreService {
       await _firestore.collection('Chats').doc(chatID).update({
             'unread_count.$userID': 0,
           });
+      print("Restored unread messages");
     }catch(e) {
       throw Exception("Failed to restore unread messages: $e");
     }
@@ -542,7 +558,9 @@ class FirestoreService {
       await _firestore.collection('Messages')
         .doc(message.message_id)
         .set(message.toMap());
-      
+
+      print("Created collection message");
+
       String chatID = await createOrGetChat(
         message.sender_id, 
         message.receiver_id,
@@ -626,6 +644,8 @@ class FirestoreService {
       }
 
       messages.sort((a, b) => a.sent_at.compareTo(b.sent_at));
+
+      print("Get messages stream");
       return messages;
     });
   }
@@ -636,6 +656,7 @@ class FirestoreService {
       await _firestore.collection('Messages').doc(messageID).update({
         'is_read': true,
       });
+      print("Mark message as read");
     }catch(e) {
       throw Exception("Failed to mark message as read: $e");
     }
@@ -650,6 +671,8 @@ class FirestoreService {
         .collection('Notifications')
         .doc(notification.notification_id)
         .set(notification.toMap());
+
+      print("Create notification");
     }catch(e) {
       throw Exception("Failed to create notification: $e");
     }
@@ -673,6 +696,8 @@ class FirestoreService {
       await _firestore.collection('Notifications').doc(notificationID).update({
         'isRead' : true,
       });
+
+      print("Mark notification as read");
     }catch(e) {
       throw Exception("Failed to mark notification as read: $e");
     }
@@ -692,6 +717,7 @@ class FirestoreService {
         b.update(doc.reference, {'is_read': true});
       }
       await b.commit();
+      print("Mark all notifications as read");
     }catch(e) {
       throw Exception("Failed to mark all notification as read: $e");
     }
@@ -701,9 +727,9 @@ class FirestoreService {
   Future<void> deleteNotification(String notificationID) async {
     try{
       await _firestore.collection('Notifications').doc(notificationID).delete();
+      print("Delete notification");
     }catch(e) {
       throw Exception("Failed to delelte notification: $e");
     }
   }
-  
 }
