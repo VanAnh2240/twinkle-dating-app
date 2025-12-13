@@ -5,11 +5,12 @@ class AppTheme {
   // COLORS
   static const Color primaryColor = Colors.pinkAccent;
   static const Color secondaryColor = Color.fromARGB(255, 125, 166, 255);
-  static const Color tertiaryColor = Color.fromARGB(255, 216, 154, 227);
+  static const Color tertiaryColor = Color.fromARGB(255, 233, 167, 245);
   static const Color backgroundColor = Color.fromARGB(255, 8, 8, 8);
   static const Color textPrimaryColor = Colors.white;
-  static const Color textSecondaryColor = Colors.white70;
-  static const Color errorColor = Color.fromARGB(255, 230, 7, 7);
+  static const Color textSecondaryColor = Color.fromARGB(179, 221, 215, 215);
+  static const Color textTeriaryColor = Color.fromARGB(255, 36, 36, 36);
+  static const Color errorColor = Color.fromARGB(255, 235, 142, 142);
   static const Color successColor = Color.fromARGB(255, 125, 219, 172);
   static const Color borderColor = Colors.white38;
 

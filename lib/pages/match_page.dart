@@ -1,73 +1,67 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_card_swiper/flutter_card_swiper.dart';
 import 'package:get/get.dart';
-import 'package:twinkle/controllers/auth_controller.dart';
-import '../controllers/match_controller.dart';
-import '../models/users_model.dart';
+import 'package:twinkle/controllers/match_controller.dart';
 
 class MatchPage extends StatelessWidget {
-  //final CardSwiperController swiperController = CardSwiperController();
-  final MatchController matchController = Get.put(MatchController());
-  final AuthController authController = Get.find<AuthController>();
-  String currentID = Get.find<AuthController>().user!.uid;
-
   MatchPage({super.key});
+
+  final MatchController controller = Get.put(MatchController());
 
   @override
   Widget build(BuildContext context) {
-    final String currentID = authController.user!.uid;
-
-    // Lấy danh sách users khi trang được build
-    matchController.getMatches();
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Danh sách người dùng"),
+        title: const Text('Discover'),
       ),
       body: Obx(() {
-        final users = matchController.matches;
-
-        /// Không còn người
-        if (users.isEmpty) {
-          return const Center(
-            child: Text(
-              "Không còn người để quẹt nữa 😅",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-            ),
-          );
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
         }
 
-        /// Hiển thị danh sách user
+        if (controller.users.isEmpty) {
+          return const Center(child: Text('No users found'));
+        }
+
         return ListView.builder(
-          itemCount: users.length,
+          itemCount: controller.users.length,
           itemBuilder: (context, index) {
-            final user = users[index];
-            return _buildUserCard(user);
+            final user = controller.users[index];
+
+            return Card(
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundImage: user.profile_picture.isNotEmpty
+                      ? NetworkImage(user.profile_picture)
+                      : null,
+                  child: user.profile_picture.isEmpty
+                      ? const Icon(Icons.person)
+                      : null,
+                ),
+                title: Text('${user.first_name} ${user.last_name}'),
+                subtitle: Text(user.bio),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Swipe left
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () =>
+                          controller.swipeLeft(user.user_id),
+                    ),
+                    // Swipe right
+                    IconButton(
+                      icon: const Icon(Icons.favorite, color: Colors.green),
+                      onPressed: () =>
+                          controller.swipeRight(user.user_id),
+                    ),
+                  ],
+                ),
+              ),
+            );
           },
         );
       }),
-    );
-  }
-
-  /// Card user
-  Widget _buildUserCard(UsersModel user) {
-    final matchController = Get.find<MatchController>();
-    final currentID = Get.find<AuthController>().user!.uid;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        onTap: () {
-          matchController.createMatch(currentID, user.id ?? '', );
-        },
-        leading: CircleAvatar(
-          backgroundImage: NetworkImage(user.profile_picture ?? ''),
-        ),
-        title: Text(user.email ?? 'No email'),
-        subtitle: Text(user.bio ?? ''),
-      ),
     );
   }
 }

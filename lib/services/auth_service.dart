@@ -1,11 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:twinkle/models/users_model.dart';
-import 'package:twinkle/services/user_service.dart';
+import 'package:twinkle/services/firestore_service.dart';
 
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final UserService _UserService = UserService();
+  final FirestoreService _FirestoreService = FirestoreService();
 
   // Current Firebase user
   User? get currentUser => _auth.currentUser;
@@ -23,8 +23,8 @@ class AuthService {
       );
       User? user = result.user;
       if (user != null) {
-        await _UserService.updateUserOnlineStatus(user.uid, true);
-        return await _UserService.getUserById(user.uid);
+        await _FirestoreService.updateUserOnlineStatus(user.uid, true);
+        return await _FirestoreService.getUserById(user.uid);
       }
       throw Exception("User not found");
     } on FirebaseAuthException catch (e) {
@@ -43,21 +43,22 @@ class AuthService {
       User? user = result.user;
       if (user != null) {
         final userModel = UsersModel(
-          first_name: null,
-          last_name: null,
+          user_id: user.uid,
+          first_name: "",
+          last_name: "",
           email: email,
           password_hash: password,
-          gender: null,
+          gender: "",
           date_of_birth: null,
-          bio: null,
-          location: null,
-          profile_picture: null,
+          bio: "",
+          location: "",
+          profile_picture: "",
           is_online: true,
           last_seen: DateTime.now(),
           created_at: DateTime.now(),
         );
 
-        await _UserService.createUser(user.uid, userModel);
+        await _FirestoreService.createUser(user.uid, userModel);
         return userModel;
       }
       throw Exception("Failed to register user");
@@ -80,7 +81,7 @@ class AuthService {
     try {
       User? user = _auth.currentUser;
       if (user != null) {
-        await _UserService.deleteUser(user.uid);
+        await _FirestoreService.deleteUser(user.uid);
         await user.delete();
       }
     } on FirebaseAuthException catch (e) {

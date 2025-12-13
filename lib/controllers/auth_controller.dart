@@ -3,7 +3,7 @@ import 'package:twinkle/models/users_model.dart';
 import 'package:twinkle/routes/app_routes.dart';
 import 'package:twinkle/services/auth_service.dart';
 import 'package:get/get.dart';
-import 'package:twinkle/services/user_service.dart';
+import 'package:twinkle/services/firestore_service.dart';
 
 
 class AuthController extends GetxController {
@@ -33,7 +33,7 @@ class AuthController extends GetxController {
         Get.offAllNamed(AppRoutes.login);
       }
     } else {
-      _usersModel.value = await UserService().getUserById(user.uid);
+      _usersModel.value = await FirestoreService().getUserById(user.uid);
 
       if (Get.currentRoute != AppRoutes.home) {
         Get.offAllNamed(AppRoutes.home);
@@ -84,6 +84,7 @@ class AuthController extends GetxController {
     } catch (e) {
       _error.value = e.toString();
       Get.snackbar('Error', "Failed to create account");
+      print(e);
     } finally {
       _isLoading.value = false;
     }
@@ -122,5 +123,6 @@ class AuthController extends GetxController {
   void clearError() {
     _error.value = '';
   }
+
 
 }

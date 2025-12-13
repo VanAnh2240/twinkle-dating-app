@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
-import 'package:twinkle/services/user_service.dart';
+import 'package:twinkle/services/firestore_service.dart';
 
 class ProfilePage extends StatelessWidget {
   final AuthController authController = Get.find<AuthController>();
-  final UserService userService = Get.put(UserService());
+  final FirestoreService _firestoreService = Get.put(FirestoreService());
 
   @override
   Widget build(BuildContext context) {
     final currentID = authController.user!.uid;
 
     return FutureBuilder(
-      future: userService.getUserById(currentID),
+      future: _firestoreService.getUserById(currentID),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return Scaffold(

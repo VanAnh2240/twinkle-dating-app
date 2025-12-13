@@ -1,34 +1,28 @@
-import 'package:get/get.dart';
-import 'package:twinkle/controllers/auth_controller.dart';
-import 'package:twinkle/models/messages_model.dart';
-import 'package:twinkle/models/users_model.dart';
-import 'package:twinkle/services/chat_service.dart';
-import 'package:twinkle/services/match_service.dart';
+// import 'package:get/get.dart';
+// import 'package:twinkle/controllers/auth_controller.dart';
+// import 'package:twinkle/models/messages_model.dart';
+// import 'package:twinkle/models/users_model.dart';
+// import 'package:twinkle/services/chatroom_service.dart';
+// import 'package:twinkle/services/match_service.dart';
+// import 'package:twinkle/services/messeage_service.dart';
 
-class MessageController extends GetxController {
-  final MatchService _matchService = MatchService();
-  final ChatService _chatService = ChatService();
+// class MessageController extends GetxController {
+//   final MatchService _match = MatchService();
+//   final ChatRoomsService _chatrooms = ChatRoomsService();
+//   final MessageService _message = MessageService();
+ 
+//   final RxList<String> chatRooms = <String>[].obs;
+//   final RxBool isLoading = false.obs;
 
-  final RxList<String> chatRooms = <String>[].obs;
-  final RxBool isLoading = false.obs;
+//   final RxList<UsersModel> potentialMatches = <UsersModel>[].obs;
 
-  final RxList<UsersModel> potentialMatches = <UsersModel>[].obs;
+//   // Send message
+//   Future<void> sendMessage(String chatroomId, String receiverId, String text) async {
+//     await _message.sendMessage(chatroomId, receiverId, text);
+//   }
 
-  void listenChatRooms() {
-    String currentID = Get.find<AuthController>().user!.uid;
-    chatRooms.bindStream(_matchService.getUserChatRooms(currentID));
-  }
-
-  Future<void> unMatch(String other) async {
-    String currentID = Get.find<AuthController>().user!.uid;
-    await _matchService.unMatch(currentID, other);
-  }
-
-  Future<void> sendMessage(String chatroomId, String receiverId, String text) async {
-    await _chatService.sendMessage(chatroomId, receiverId, text);
-  }
-
-  Stream<List<MessagesModel>> getMessages(String chatroomId) {
-    return _chatService.getMessages(chatroomId);
-  }
-}
+//   // Get messages
+//   Stream<List<MessagesModel>> getMessages(String chatroomId) {
+//     return _message.getMessages(chatroomId);
+//   }
+// }

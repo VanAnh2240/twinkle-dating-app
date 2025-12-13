@@ -16,10 +16,9 @@ class AppRoutes {
   static const String profile = '/profile';
 
   //chat
-  static const String chat = '/chat';
-  static const String chatList = '/chat-list';
+  static const String chatList = '/chat-rooms';
+  static const String chat = '/chat/:userId';
   static const String match = '/match';
-  static const String chatRoom = '/chat-room';
 
   //settings
   static const String settings = '/settings';

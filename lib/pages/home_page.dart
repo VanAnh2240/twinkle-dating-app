@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/home_controller.dart';
-import 'package:twinkle/pages/chat_list_page.dart';
+import 'package:twinkle/pages/chatlist_page.dart';
 import 'package:twinkle/pages/match_page.dart';
 import 'package:twinkle/pages/profile_page.dart';
 import 'package:twinkle/pages/setting_page.dart';
