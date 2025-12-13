@@ -43,12 +43,10 @@ class MatchController extends GetxController {
   /// Swipe right → request hoặc auto match
   Future<void> swipeRight(String targetUserID) async {
     if (currentUserID == null) return;
-
     try {
-      await _firestoreService.requestOrCreateMatch(
-        currentUserID!,
-        targetUserID,
-      );
+      await _firestoreService.requestOrCreateMatch(currentUserID!,targetUserID,);
+      await _firestoreService.deleteMatchRequest(currentUserID!, targetUserID);
+
     } catch (e) {
       error.value = e.toString();
     }

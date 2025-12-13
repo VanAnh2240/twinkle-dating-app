@@ -60,6 +60,8 @@ class AuthController extends GetxController {
       _isLoading.value = true;
       _error.value = '';
       UsersModel? usersModel = await _authService.signInWithEmailPassword(email, password);
+      //gọi method signInWithEmailPassword đã định nghĩa trong file services/auth_service.dart
+      //trả về data user đã được authentic
       if (usersModel != null) {
         _usersModel.value = usersModel;
         Get.offAllNamed(AppRoutes.home);

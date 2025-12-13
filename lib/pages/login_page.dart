@@ -210,7 +210,8 @@ class LoginPageState extends State<LoginPage>{
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     GestureDetector(
-                      onTap: () => Get.toNamed(AppRoutes.register),
+                      onTap: () => Get.toNamed(AppRoutes.register), 
+                      //->gọi tên route, chuyển sang register page
                       child: Text(
                         "Sign up now",
                         style: TextStyle(

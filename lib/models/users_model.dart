@@ -20,7 +20,7 @@ class UsersModel {
 
   //khai báo các thuộc tính của model
   UsersModel({
-    required this.user_id,
+    required this.user_id, //required => bắt buộc phải có giá trị
     required this.first_name,
     required this.last_name,
     required this.email,
@@ -38,7 +38,7 @@ class UsersModel {
 
   });
 
-  // Convert to Firestore map
+  // Convert to Firestore map => lưu vào firestore
   Map<String, dynamic> toMap() {
     return {
       "user_id": user_id,
@@ -58,7 +58,7 @@ class UsersModel {
     };
   }
 
-  // Convert from Firestore map
+  // Convert from Firestore map => lấy từ firestore
   static UsersModel fromMap(Map<String, dynamic> map) {
     return UsersModel(
       user_id: map["user_id"],

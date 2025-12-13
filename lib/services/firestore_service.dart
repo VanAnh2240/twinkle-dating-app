@@ -14,8 +14,10 @@ class FirestoreService {
   // Create user FirebaseAuth
   Future<void> createUser(String uid, UsersModel user) async {
     try {
-      final data = user.toMap();
-      await _firestore.collection('Users').doc(uid).set(data); //cách create collections trong firebase
+      final data = user.toMap(); //toMap() => định nghĩa data trước khi
+      await _firestore.collection('Users').doc(uid).set(data); 
+      //create 1 collection 'Users' trong firestore với các thuộc tính đã định nghĩa trước ở hàm toMap()
+      
       print("User document created: $uid");  
 
     } catch (e) {
@@ -26,15 +28,15 @@ class FirestoreService {
   // Get user by uid
   Future<UsersModel> getUserById(String userId) async {
     final doc = await FirebaseFirestore.instance
-        .collection("Users")
-        .doc(userId)
-        .get();
+        .collection("Users").doc(userId).get(); 
+      //Truy xuất collections 'Users', lấy document có ID == userId
 
     if (!doc.exists) {
       throw Exception("User not found");
     }
     print("Get user by id");
-    return UsersModel.fromMap(doc.data()!..['user_id'] = doc.id);
+    return UsersModel.fromMap(doc.data()!..['user_id'] = doc.id); 
+    //chuyển data nhận được từ firestore thành data mình có thể làm việc được bằng hàm fromMap()
   }
 
 
@@ -125,7 +127,7 @@ class FirestoreService {
         //tạo request match
         List<String> userIDs = [currentUserID, targetUserID];
         userIDs.sort();
-        String requestID = '${userIDs[0]}_${userIDs[1]}_$currentUserID';
+        String requestID = '${userIDs[0]}_${userIDs[1]}';
 
         final request = MatchRequestsModel(
           request_id: requestID,
@@ -135,7 +137,7 @@ class FirestoreService {
           requested_on: DateTime.now(),
         );
 
-        createRequestMatch(request);
+        createMatchRequest(request);
       }
 
     }catch (e) {
@@ -144,17 +146,34 @@ class FirestoreService {
   }
   
   //create match request 
-  Future<void> createRequestMatch(MatchRequestsModel request) async {
+  Future<void> createMatchRequest(MatchRequestsModel request) async {
     try{
       await _firestore.collection('MatchRequests')
-        .doc(request.request_id)
-        .set(request.toMap());
+        .doc(request.request_id).set(request.toMap());
+      
       print("Create match request");
     }catch(e){
       throw Exception("Failed to request match: $e");
     }
   }
 
+  //delete match request 
+  Future<void> deleteMatchRequest(String user1ID, String user2ID) async {
+    try{
+      List<String> userIDs = [user1ID, user2ID];
+        userIDs.sort();
+        String requestID = '${userIDs[0]}_${userIDs[1]}';
+
+      await _firestore.collection('MatchRequests')
+        .doc(requestID).delete();
+
+      print("Deleted match request");
+    }catch(e){
+      throw Exception("Failed to request match: $e");
+    }
+  }
+
+  
   //create match = create notification
   Future<void> createMatch(String user1ID, String user2ID) async {
     try{

@@ -54,6 +54,8 @@ class MatchPage extends StatelessWidget {
                       icon: const Icon(Icons.favorite, color: Colors.green),
                       onPressed: () =>
                           controller.swipeRight(user.user_id),
+                          //controller = Get.put(MatchController());
+                          //nếu press icon => kích hoạt method swipeRight trong match_controller
                     ),
                   ],
                 ),

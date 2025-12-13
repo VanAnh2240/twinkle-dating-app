@@ -22,7 +22,7 @@ class MatchRequestsModel {
    /// Convert to Firestore map
   Map<String, dynamic> toMap() {
     return {
-      'id': request_id,
+      'request_id': request_id,
       'sender_id': sender_id,
       'receiver_id': receiver_id,
       'status': status.name,
