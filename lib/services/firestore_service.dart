@@ -1,25 +1,23 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:twinkle/models/blocked_users_model.dart';
 import 'package:twinkle/models/chat_model.dart';
 import 'package:twinkle/models/match_requests_model.dart';
 import 'package:twinkle/models/matches_model.dart';
 import 'package:twinkle/models/messages_model.dart';
 import 'package:twinkle/models/notifications_model.dart';
+import 'package:twinkle/models/profile_model.dart';
 import 'package:twinkle/models/users_model.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance; //gọi hàm firebase
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; 
   
   //=======================================USERS=======================================//
-
   // Create user FirebaseAuth
   Future<void> createUser(String uid, UsersModel user) async {
     try {
-      final data = user.toMap(); //toMap() => định nghĩa data trước khi
+      final data = user.toMap();
       await _firestore.collection('Users').doc(uid).set(data); 
-      //create 1 collection 'Users' trong firestore với các thuộc tính đã định nghĩa trước ở hàm toMap()
-      
       print("User document created: $uid");  
-
     } catch (e) {
       throw Exception("Failed to create user: $e");
     }
@@ -29,16 +27,13 @@ class FirestoreService {
   Future<UsersModel> getUserById(String userId) async {
     final doc = await FirebaseFirestore.instance
         .collection("Users").doc(userId).get(); 
-      //Truy xuất collections 'Users', lấy document có ID == userId
 
     if (!doc.exists) {
       throw Exception("User not found");
     }
     print("Get user by id");
     return UsersModel.fromMap(doc.data()!..['user_id'] = doc.id); 
-    //chuyển data nhận được từ firestore thành data mình có thể làm việc được bằng hàm fromMap()
   }
-
 
   // Update online status
   Future<void> updateUserOnlineStatus(String uid, bool is_online) async {
@@ -66,13 +61,12 @@ class FirestoreService {
     }
   }
 
-  //getUserStream => theo doi realtime changes từ collection 'Users'
   Stream<UsersModel?> getUserStream(String userId) {
-  return _firestore
-      .collection('Users') 
-      .doc(userId)
-      .snapshots()
-      .map((doc) => doc.exists ? UsersModel.fromMap(doc.data()!) : null);
+    return _firestore
+        .collection('Users') 
+        .doc(userId)
+        .snapshots()
+        .map((doc) => doc.exists ? UsersModel.fromMap(doc.data()!) : null);
   }
 
   Future<void> updateUser(UsersModel user) async {
@@ -93,19 +87,13 @@ class FirestoreService {
     );
   }
 
+  
   //=======================================MATCH=======================================//
   
-  //request / createMatch
   Future<void> requestOrCreateMatch(String currentUserID, String targetUserID) async {
     try{
-      // Logic:
-      // - Nếu đối phương đã quẹt phải mình => tạo match
-      // - Nếu chưa => lưu request (interest 1 chiều)
-
       if (currentUserID == targetUserID) return;
 
-      
-      //check request ngược từ target-> current
       final reverseQuery = await _firestore
         .collection('MatchRequests')
         .where('sender_id', isEqualTo: targetUserID)
@@ -115,7 +103,6 @@ class FirestoreService {
         .get();
 
       if(reverseQuery.docs.isNotEmpty) {
-        //cập nhật matchrequest status = matched
         final reverseDoc = reverseQuery.docs.first;
         await reverseDoc.reference.update({
           'status': 'matched',
@@ -124,7 +111,6 @@ class FirestoreService {
         await createMatch(currentUserID, targetUserID);
         return;
       }else {
-        //tạo request match
         List<String> userIDs = [currentUserID, targetUserID];
         userIDs.sort();
         String requestID = '${userIDs[0]}_${userIDs[1]}';
@@ -139,25 +125,21 @@ class FirestoreService {
 
         createMatchRequest(request);
       }
-
     }catch (e) {
       throw Exception("Failed to request or create match: $e");
     }
   }
-  
-  //create match request 
+
   Future<void> createMatchRequest(MatchRequestsModel request) async {
     try{
       await _firestore.collection('MatchRequests')
-        .doc(request.request_id).set(request.toMap());
-      
+        .doc(request.request_id).set(request.toMap());   
       print("Create match request");
     }catch(e){
       throw Exception("Failed to request match: $e");
     }
   }
-
-  //delete match request 
+  
   Future<void> deleteMatchRequest(String user1ID, String user2ID) async {
     try{
       List<String> userIDs = [user1ID, user2ID];
@@ -173,8 +155,6 @@ class FirestoreService {
     }
   }
 
-  
-  //create match = create notification
   Future<void> createMatch(String user1ID, String user2ID) async {
     try{
       List<String> userIDs = [user1ID, user2ID];
@@ -182,7 +162,6 @@ class FirestoreService {
 
       String matchID = '${userIDs[0]}_${userIDs[1]}';
 
-      //add to firestore
       MatchesModel match = MatchesModel(
         match_id: matchID, 
         user1_id: user1ID, 
@@ -190,9 +169,10 @@ class FirestoreService {
         matched_at: DateTime.now(),
       );
       await _firestore.collection("Matches").doc(matchID).set(match.toMap());
-      print("Create match");
+      print("Created match");
 
-      //notification
+      createOrGetChat(user1ID,user2ID);
+
       await createNotification(
             NotificationsModel(
               notification_id: DateTime.now().millisecondsSinceEpoch.toString(), 
@@ -206,7 +186,6 @@ class FirestoreService {
     }
   }
 
-  //unmatch -> create notification + inactive chat + update status match request
   Future<void> unMatch(String user1ID, String user2ID) async {
     try{
       if (user1ID == user2ID) return;
@@ -216,12 +195,9 @@ class FirestoreService {
 
       String matchID = '${userIDs[0]}_${userIDs[1]}';
 
-      //delete match
       await _firestore.collection('Matches').doc(matchID).delete();
       print("Unmatch");
 
-
-      //notification cho unmatcher
       await createNotification (
         NotificationsModel(
           notification_id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -231,10 +207,8 @@ class FirestoreService {
         )
       );
 
-      //inactive chat
       inactiveChat(matchID);
 
-      //update status match request
       final requestQuery = await _firestore
         .collection('MatchRequests')
         .where('sender_id', whereIn: [user1ID, user2ID])
@@ -249,17 +223,14 @@ class FirestoreService {
         });
         print("Update status match request");
       }
-
     }
     catch(e) {
       throw Exception("Failed to unmatch: $e");
     }
   }
 
-  //block user => unmatch
   Future<void> blockUser(String blockerID, String blockedID) async {
     try{
-      //create block
       await createBlockedUser (blockerID, blockedID);
       unMatch(blockerID, blockedID);
     }
@@ -268,13 +239,11 @@ class FirestoreService {
     }
   }
 
-  //unblock user
   Future<void> unBlockUser(String blockerID, String blockedID) async {
     try{
       List<String> userIDs = [blockerID, blockedID];
       String blockID = '${userIDs[0]}_${userIDs[1]}';
       
-      //un block
       await _firestore.collection('BlockedUsers').doc(blockID).delete();
       print("Unblock");
     }
@@ -283,7 +252,6 @@ class FirestoreService {
     }
   }
   
-  //create block usser
   Future<void> createBlockedUser(String blockerID, String blockedID) async {
     try {
       List<String> userIDs = [blockerID, blockedID];
@@ -303,57 +271,42 @@ class FirestoreService {
     }
   }
   
-  //get matches stream except block list
-  Stream<List<MatchesModel>> getMatchesStream(String userID) {
-    return _firestore.collection('Matches')
-      .where('user1_id',isEqualTo: userID)
-      .snapshots()
-      .asyncMap((snapshot1) async {
-        QuerySnapshot snapshot2 = await _firestore
-          .collection('Matches')
-          .where('user2_id',isEqualTo: userID).get();
-        
-        List<MatchesModel> matches = [];
-
-        for (var doc in snapshot1.docs) {
-          matches.add(
-            MatchesModel.fromMap(doc.data() as Map<String, dynamic>),
-          );
-        }
-
-        for (var doc in snapshot2.docs) {
-          matches.add(
-            MatchesModel.fromMap(doc.data() as Map<String, dynamic>),
-          );
-        }
-
-        //list block
-        final blockedSnapshot = await _firestore
-            .collection('BlockedUsers')
-            .get();
-
-        //lấy danh sách user bị block hoặc đã block
-        final blockedUsers = blockedSnapshot.docs.map((doc) {
-          final data = doc.data();
-          return [
-            data['user_id'] as String,
-            data['blocked_user_id'] as String
-          ];
-        }).expand((ids) => ids).toSet();
-
-        // lọc match: đối phương không được nằm trong blocklist
-        final filteredMatches = matches.where((match) {
-          final otherID = match.user1_id == userID ? match.user2_id : match.user1_id;
-          return !blockedUsers.contains(otherID);
-        }).toList();
-
-
-        return filteredMatches;
-
-      });
+  Stream<List<MatchesModel>> getMatchesStream(String userId) {
+    return _firestore
+        .collection('Matches')
+        .where(
+          Filter.or(
+            Filter('user1_id', isEqualTo: userId),
+            Filter('user2_id', isEqualTo: userId),
+          ),
+        )
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              data['id'] = doc.id;
+              return MatchesModel.fromMap(data);
+            }).toList());
   }
 
-  //get matches
+  Stream<List<MatchRequestsModel>> getMatchRequestsStream(String userId) {
+    return _firestore
+        .collection('MatchRequests')
+        .where(
+          Filter.or(
+            Filter('sender_id', isEqualTo: userId),
+            Filter('receiver_id', isEqualTo: userId),
+          ),
+        )
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id; 
+            return MatchRequestsModel.fromMap(data);
+          }).toList();
+        });
+  }
+  
   Future<MatchesModel?> getMatches(String user1ID, String user2ID) async {
     try {
       List<String> userIDs = [user1ID, user2ID];
@@ -370,30 +323,11 @@ class FirestoreService {
       }
 
       return null;
-
     }catch(e) {
       throw Exception("Failed to get matches: $e");
     }
   }
 
-  //check if user is blocked?
-  Future<bool> isUserBlocked(String userID, String otherID) async {
-    try{
-      final query = await _firestore
-        .collection('BlockedUsers')
-        .where('user_id', isEqualTo: otherID)
-        .where('blocked_user_id', isEqualTo: userID)
-        .get();
-
-      print("Checked if user is blocked");
-      return query.docs.isNotEmpty;
-
-    }catch(e) {
-      throw Exception("Failed to check if user is blocked: $e");
-    }
-  }
-
-  //check if a user is unmatched
   Future<bool> isUserUnmatched(String userID, String otherID) async {
     try{
       List<String> userIDs = [userID,otherID];
@@ -412,9 +346,100 @@ class FirestoreService {
     }
   }
 
+  //========================================BLOCK==================================================//
+  
+  Future<void> createBlock({required String userId, required String blockedUserId,}) async {
+    if (userId == blockedUserId) return;
+
+    final blockRef = _firestore.collection('BlockedUsers');
+
+    final existing = await blockRef
+        .where('user_id', isEqualTo: userId)
+        .where('blocked_user_id', isEqualTo: blockedUserId)
+        .limit(1)
+        .get();
+
+    if (existing.docs.isNotEmpty) return;
+
+    final docRef = blockRef.doc();
+    List<String> userIDs = [userId, blockedUserId];  
+    String blockID = '${userIDs[0]}_${userIDs[1]}';
+
+    final block = BlockedUsersModel(
+      block_id: blockID,
+      user_id: userId,
+      blocked_user_id: blockedUserId,
+      blocked_on: DateTime.now(),
+    );
+
+    await docRef.set({
+      'block_id': block.block_id,
+      'user_id': block.user_id,
+      'blocked_user_id': block.blocked_user_id,
+      'blocked_on': Timestamp.fromDate(block.blocked_on),
+    });
+  }
+
+  Future<bool> isUserBlocked(String userID, String otherID) async {
+    try{
+      final query = await _firestore
+        .collection('BlockedUsers')
+        .where('user_id', isEqualTo: otherID)
+        .where('blocked_user_id', isEqualTo: userID)
+        .get();
+
+      print("Checked if user is blocked");
+      return query.docs.isNotEmpty;
+    }catch(e) {
+      throw Exception("Failed to check if user is blocked: $e");
+    }
+  }
+
+  Future<List<BlockedUsersModel>> getBlockedUsers(String userID) async {
+    final snapshot = await _firestore.collection('BlockedUsers')
+        .where('user_id', isEqualTo: userID)
+        .get();
+
+    final snapshot2 = await _firestore.collection('BlockedUsers')
+        .where('blocked_user_id', isEqualTo: userID)
+        .get();
+
+    List<BlockedUsersModel> blocked = snapshot.docs.map((d) {
+      return BlockedUsersModel.fromMap(d.data());
+    }).toList();
+
+    blocked.addAll(snapshot2.docs.map((d) => BlockedUsersModel.fromMap(d.data())));
+    return blocked;
+  }
+
+  Stream<List<BlockedUsersModel>> getBlockedUsersStream(String userId) async* {
+    final blockedByMe = _firestore
+        .collection('BlockedUsers')
+        .where('user_id', isEqualTo: userId)
+        .snapshots();
+
+    final blockedMe = _firestore
+        .collection('BlockedUsers')
+        .where('blocked_user_id', isEqualTo: userId)
+        .snapshots();
+
+    await for (final _ in blockedByMe) {
+      final byMeSnap = await blockedByMe.first;
+      final meSnap = await blockedMe.first;
+
+      final allDocs = [
+        ...byMeSnap.docs,
+        ...meSnap.docs,
+      ];
+
+      yield allDocs
+          .map((doc) => BlockedUsersModel.fromMap(doc.data()))
+          .toList();
+    }
+  }
+
   //=======================================CHAT=======================================//
 
-  //create chat: Nếu 2 người đã có chat room => truy cập; chưa có => tạo mới
   Future<String> createOrGetChat(String user1ID, String user2ID) async {
     try{
       List<String> userIDs = [user1ID, user2ID];
@@ -422,13 +447,13 @@ class FirestoreService {
 
       String chatID = '${userIDs[0]}_${userIDs[1]}';
 
-      DocumentReference chatRef = _firestore.collection('Chats').doc('chat_id');
+      // ✅ FIX: Sử dụng chatID động
+      DocumentReference chatRef = _firestore.collection('Chats').doc(chatID);
       DocumentSnapshot chatDoc = await chatRef.get();
 
       if(!chatDoc.exists) {
         ChatsModel newChat = ChatsModel(
           chat_id: chatID, 
-          is_enable: true, 
           participants: userIDs, 
           unread_count: {user1ID: 0, user2ID: 0}, 
           delete_by: {user1ID: false, user2ID: false},
@@ -439,7 +464,7 @@ class FirestoreService {
         );
 
         await chatRef.set(newChat.toMap());
-        print("Create chat");
+        print("Created chat: $chatID");
       }
       else{
         ChatsModel existingChat = ChatsModel.fromMap(
@@ -452,29 +477,38 @@ class FirestoreService {
           await restoreChatForUser(chatID, user2ID);
         }
       }
-      print("Get chat");
+      print("Get chat: $chatID");
       return chatID;
-
     }catch(e) {
-      throw Exception("Failed to check if user is unmatched: $e");
+      throw Exception("Failed to create or get chat: $e");
     }
   }
 
-  //get chats stream of user
+  // ✅ TEMPORARY FIX: Manual sorting thay vì orderBy (không cần index)
   Stream<List<ChatsModel>> getUserChatsStream(String userID) {
     return _firestore.collection('Chats')
       .where('participants', arrayContains: userID)
-      .orderBy('updated_at', descending: true)
+      // Comment out orderBy to avoid index requirement
+      // .orderBy('updated_at', descending: true)
       .snapshots()
-      .map(
-        (snapshot) => snapshot.docs
+      .map((snapshot) {
+        final chats = snapshot.docs
           .map((doc) => ChatsModel.fromMap(doc.data()))
           .where((chat) => !chat.isDeleteBy(userID))
-          .toList(),
-      );
+          .toList();
+        
+        // Sort manually in code
+        chats.sort((a, b) {
+          final timeA = a.updated_at ?? DateTime(0);
+          final timeB = b.updated_at ?? DateTime(0);
+          return timeB.compareTo(timeA);
+        });
+        
+        print("📩 getUserChatsStream: Loaded ${chats.length} chats for $userID");
+        return chats;
+      });
   }
 
-  //inactive chat for both users
   Future<void> inactiveChat(String chatID) async {
     try {
       await FirebaseFirestore.instance
@@ -489,7 +523,6 @@ class FirestoreService {
     }
   }
   
-  //update last mess
   Future<void> updateChatLastMessage(String chatID, MessagesModel message) async {
     try{
       await _firestore.collection('Chats')
@@ -497,7 +530,7 @@ class FirestoreService {
         'last_message': message.message_text,
         'last_message_time': message.sent_at.millisecondsSinceEpoch,
         'last_message_sender_id': message.sender_id,
-        'update_at': DateTime.now().millisecondsSinceEpoch,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
       });
       print("Updated chat last message");
     }catch(e) {
@@ -505,11 +538,10 @@ class FirestoreService {
     }
   }
 
-  //update user last seen
   Future<void> updateUserLastSeen(String chatID, String userID) async {
     try{
       await _firestore.collection('Chats').doc(chatID).update({
-        'last_seen_by.${userID}':DateTime.now().millisecondsSinceEpoch,
+        'last_seen_by.$userID':DateTime.now().millisecondsSinceEpoch,
       });
       print("Updated user last seen");
     }catch(e) {
@@ -517,26 +549,23 @@ class FirestoreService {
     }
   }
 
-  //delete chat for user
+  // ✅ FIX: Chỉ update, không delete document
   Future<void> deleteChatForUser(String chatID, String userID) async {
     try{
       await _firestore.collection('Chats').doc(chatID).update({
         'delete_by.$userID': true,
-        'delete_at.${userID}': DateTime.now().millisecondsSinceEpoch,
+        'delete_at.$userID': DateTime.now().millisecondsSinceEpoch,
       });
-
-      await _firestore.collection('Chats').doc(chatID).delete();
-      print("Deleted chat for user");
+      print("Marked chat as deleted for user");
     }catch(e) {
       throw Exception("Failed to delete chat for user: $e");
     }
   }
 
-  //restore chat for user
   Future<void> restoreChatForUser(String chatID, String userID) async {
     try{
       await _firestore.collection('Chats').doc(chatID).update({
-        'deleted_by.$userID': false,
+        'delete_by.$userID': false,
       });
       print("Restore chat for user");
     }catch(e) {
@@ -544,12 +573,11 @@ class FirestoreService {
     }
   }
   
-  //update unread messages
   Future<void> updateUnreadCount (String chatID, String userID, int count) async {
     try{
       await _firestore.collection('Chats').doc(chatID)
           .update({
-            'unread_count': count,
+            'unread_count.$userID': count,
           });
       print("Updated unread messages");
     }catch(e) {
@@ -557,7 +585,6 @@ class FirestoreService {
     }
   }
 
-  //seen -> restore unread messagess = 0
   Future<void> restoreUnreadCount (String chatID, String userID) async {
     try{
       await _firestore.collection('Chats').doc(chatID).update({
@@ -571,7 +598,6 @@ class FirestoreService {
 
   //=======================================MESSAGE=======================================//
   
-  //send message => update chat last + user last seen + unread count
   Future<void> sendMessage(MessagesModel message) async {
     try{
       await _firestore.collection('Messages')
@@ -602,38 +628,46 @@ class FirestoreService {
 
         await updateUnreadCount(chatID, message.receiver_id, count+1);
       }
-
     }catch(e) {
       throw Exception("Failed to send message: $e");
     }
   }
 
-  //get stream message cuar 2 nguoi + lọc các tin nhắn đã bị xóa xóa (delete_at)
   Stream<List<MessagesModel>> getMessagesStream(String user1ID, String user2ID) {
-    return _firestore
-        .collection('Messages')
-        // message có sender là 1 trong 2 người
-        .where('sender_id', whereIn: [user1ID, user2ID])
-        .snapshots()
-        .asyncMap((snapshot) async {
-          
-      List<String> ids = [user1ID, user2ID];
-      ids.sort();
-      String chatID = '${ids[0]}_${ids[1]}';
+    List<String> ids = [user1ID, user2ID];
+    ids.sort();
+    String chatID = '${ids[0]}_${ids[1]}';
 
-      // Lấy dữ liệu chat 
-      final chatDoc = await _firestore.collection('Chats').doc(chatID).get();
+    Stream<ChatsModel?> chatStream = _firestore
+        .collection('Chats')
+        .doc(chatID)
+        .snapshots()
+        .map((doc) {
+          if (doc.exists) {
+            return ChatsModel.fromMap(doc.data() as Map<String, dynamic>);
+          }
+          return null;
+        });
+
+    Stream<QuerySnapshot> messagesStream = _firestore
+        .collection('Messages')
+        .where('sender_id', whereIn: [user1ID, user2ID])
+        .snapshots();
+
+    return messagesStream.asyncMap((msgSnapshot) async {
       ChatsModel? chat;
-      if (chatDoc.exists) {
-        chat = ChatsModel.fromMap(chatDoc.data() as Map<String, dynamic>);
+      try {
+        chat = await chatStream.first.timeout(Duration(seconds: 5));
+      } catch (e) {
+        print("Error getting chat: $e");
+        chat = null;
       }
 
       List<MessagesModel> messages = [];
 
-      for (var doc in snapshot.docs) {
-        final msg = MessagesModel.fromMap(doc.data());
+      for (var doc in msgSnapshot.docs) {
+        final msg = MessagesModel.fromMap(doc.data() as Map<String, dynamic>);
 
-        // Điều kiện lọc tin năhsn giữa 2 người - loại trư tin gửi cho người khác)
         bool isBetweenTwoUsers = 
             (msg.sender_id == user1ID && msg.receiver_id == user2ID) ||
             (msg.sender_id == user2ID && msg.receiver_id == user1ID);
@@ -642,34 +676,26 @@ class FirestoreService {
 
         bool shouldAdd = true;
 
-        // Nếu có dữ liệu chat -> kiểm tra delete_at
         if (chat != null) {
-
-          // Messages cũ hơn thời gian user1 xóa chatbox => user1 không thấy tin nhắn
           final user1DeletedAt = chat.getDeleteAt(user1ID);
           if (user1DeletedAt != null && msg.sent_at.isBefore(user1DeletedAt)) {
             shouldAdd = false;
           }
 
-          // Messages cũ hơn thời điểm user2 xóa chatbox => user2 không thấy
           final user2DeletedAt = chat.getDeleteAt(user2ID);
           if (user2DeletedAt != null && msg.sent_at.isBefore(user2DeletedAt)) {
             shouldAdd = false;
           }
         }
 
-        // Nếu tin nhắn hợp lệ => thêm vào list
         if (shouldAdd) messages.add(msg);
       }
 
       messages.sort((a, b) => a.sent_at.compareTo(b.sent_at));
-
-      print("Get messages stream");
       return messages;
     });
   }
-
-  //mark as read
+  
   Future<void> markMessageAsRead(String messageID) async {
     try{
       await _firestore.collection('Messages').doc(messageID).update({
@@ -683,7 +709,6 @@ class FirestoreService {
   
   //=======================================NOTIFICATIONS=======================================//
   
-  //create noti
   Future<void> createNotification(NotificationsModel notification) async {
     try{
       await _firestore
@@ -697,23 +722,30 @@ class FirestoreService {
     }
   }
 
-  //get noti
+  // ✅ TEMPORARY FIX: Manual sorting thay vì orderBy
   Stream<List<NotificationsModel>> getNotificationsStream(String userID) {
     return _firestore.collection('Notifications')
       .where('user_id', isEqualTo: userID)
-      .orderBy('sent_at', descending: true)
+      // Comment out orderBy to avoid index requirement
+      // .orderBy('sent_at', descending: true)
       .snapshots()
-      .map(
-        (snapshot) => snapshot.docs
+      .map((snapshot) {
+        final notifs = snapshot.docs
           .map((doc) => NotificationsModel.fromMap(doc.data()))
-          .toList());
+          .toList();
+        
+        // Sort manually in code
+        notifs.sort((a, b) => b.sent_at.compareTo(a.sent_at));
+        
+        print("🔔 getNotificationsStream: Loaded ${notifs.length} notifications");
+        return notifs;
+      });
   }
 
-  //mark as read
   Future<void> markNotificationAsRead(String notificationID) async {
     try{
       await _firestore.collection('Notifications').doc(notificationID).update({
-        'isRead' : true,
+        'is_read' : true,
       });
 
       print("Mark notification as read");
@@ -722,7 +754,6 @@ class FirestoreService {
     }
   }
 
-  //mark all notifications as read
   Future<void> markAllNotificationAsRead(String userID) async {
     try{
       QuerySnapshot notifications = await _firestore.collection('Notifications')
@@ -742,13 +773,31 @@ class FirestoreService {
     }
   }
 
-  //delete notification
   Future<void> deleteNotification(String notificationID) async {
     try{
       await _firestore.collection('Notifications').doc(notificationID).delete();
       print("Delete notification");
     }catch(e) {
       throw Exception("Failed to delelte notification: $e");
+    }
+  }
+
+  //=======================================PROFILE=======================================//
+  Future<ProfileModel?> getUserProfile(String userId) async {
+    try {
+      final doc = await _firestore
+          .collection('Profiles')
+          .doc(userId)
+          .get();
+
+      if (!doc.exists) return null;
+
+      final data = doc.data();
+      if (data == null) return null;
+
+      return ProfileModel.fromMap(data);
+    } catch (e) {
+      throw Exception('Failed to get user profile: $e');
     }
   }
 }

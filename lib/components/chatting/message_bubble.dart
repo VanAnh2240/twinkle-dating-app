@@ -7,15 +7,13 @@ class MessageBubble extends StatelessWidget {
   final bool isMyMessage;
   final bool showTime;
   final String timeText;
-  final VoidCallback? onLongPress;
-
+  
   const MessageBubble({
     super.key,
     required this.message,
     required this.isMyMessage,
     required this.showTime,
     required this.timeText,
-    this.onLongPress,
   });
 
   @override
@@ -23,28 +21,22 @@ class MessageBubble extends StatelessWidget {
     return Column(
       children: [
         if(showTime)...{
-          SizedBox(height: 16,),
+          SizedBox(height: 16),
           Center(
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.secondaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
               child: Text(
                 timeText,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textTeriaryColor,
+                style: TextStyle(
+                  color: AppTheme.textPrimaryColor,
+                  fontSize: 12,
                 ),
               ),
             ),
           ),
-
-          SizedBox(height: 16,),
+          SizedBox(height: 10),
         }
         else 
-          SizedBox(height: 4,),
-
+          SizedBox(height: 2),
         Row(
           mainAxisAlignment: isMyMessage
             ? MainAxisAlignment.end
@@ -52,19 +44,21 @@ class MessageBubble extends StatelessWidget {
           
           children: [
             if(!isMyMessage)...[
-              SizedBox(width: 0,),
+              SizedBox(width: 0),
             ],
             Flexible(
               child: GestureDetector(
-                onLongPress: onLongPress,
                 child: Container(
+                  margin: EdgeInsets.only(bottom: 8),
                   constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width*0.75,
+                    maxWidth: MediaQuery.of(context).size.width * 0.75,
                   ),
-                  padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  padding: EdgeInsets.symmetric(vertical: 5, horizontal: 10),
                   decoration: BoxDecoration(
-                    color: isMyMessage ? AppTheme.secondaryColor : AppTheme.tertiaryColor,
-                    borderRadius: BorderRadius.circular(20),
+                    color: isMyMessage 
+                      ? const Color.fromARGB(255, 133, 165, 234)  
+                      : Color.fromARGB(255, 224, 132, 224), 
+                    borderRadius: BorderRadius.circular(30),
                   ),
 
                   child: Column(
@@ -72,10 +66,10 @@ class MessageBubble extends StatelessWidget {
                     children: [
                       Text(
                         message.message_text,
-                        style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(
-                            color: AppTheme.textTeriaryColor,
-                          )
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                        )
                       ),
                     ],
                   )
@@ -84,14 +78,14 @@ class MessageBubble extends StatelessWidget {
             ),
 
             if (isMyMessage)...[
-              SizedBox(width: 8,),
-              _buildMessageStatus()],
+              SizedBox(width: 5),
+              _buildMessageStatus()
+            ],
           ],
         ),
       ],
     );
   }
-
 
   Widget _buildMessageStatus() {
     return Container(
@@ -99,7 +93,7 @@ class MessageBubble extends StatelessWidget {
       child: Icon(
         message.is_read ? Icons.done_all : Icons.done,
         size: 16,
-        color: message.is_read ? Colors.white :AppTheme.borderColor,
+        color: Color(0xFF8B8B8B),
       ),
     );
   }

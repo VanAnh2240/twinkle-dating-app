@@ -66,7 +66,7 @@ class ProfilePage extends StatelessWidget {
                         ? NetworkImage(user.profile_picture!)
                         : null,
                     child: (user.profile_picture == null ||
-                            user.profile_picture!.isEmpty)
+                            user.profile_picture.isEmpty)
                         ? Icon(Icons.person, size: 60, color: Colors.grey)
                         : null,
                   ),
@@ -100,10 +100,7 @@ class ProfilePage extends StatelessWidget {
                     value: user.date_of_birth != null
                         ? "${user.date_of_birth!.day}/${user.date_of_birth!.month}/${user.date_of_birth!.year}"
                         : "Not set"),
-                _buildInfoCard(title: "Bio", value: user.bio ?? "No bio"),
-                _buildInfoCard(
-                    title: "Location", value: user.location ?? "Unknown"),
-
+                
                 SizedBox(height: 25),
 
                 /// Edit Profile Button

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum MatchRequestsStatus {none, pending, matched, unmatched}
 
 class MatchRequestsModel {
@@ -30,7 +28,7 @@ class MatchRequestsModel {
     };
   }
 
-    /// Convert from Firestore map
+  /// Convert from Firestore map
   static MatchRequestsModel fromMap(Map<String, dynamic> map) {
     return MatchRequestsModel(
       request_id: map['id'] ?? '',

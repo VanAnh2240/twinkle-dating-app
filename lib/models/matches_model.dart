@@ -26,13 +26,18 @@ class MatchesModel {
     };
   }
 
-    /// Convert from Firestore map
+  /// Convert from Firestore map
   static MatchesModel fromMap(Map<String, dynamic> map) {
+    final matchedAtRaw = map['matched_at'];
+    final matchedAt = matchedAtRaw is Timestamp
+        ? matchedAtRaw.toDate()
+        : DateTime.fromMillisecondsSinceEpoch(matchedAtRaw ?? 0);
+
     return MatchesModel(
       match_id: map['match_id'] ?? '',
       user1_id: map['user1_id'] ?? '',
       user2_id: map['user2_id'] ?? '',
-      matched_at: DateTime.fromMillisecondsSinceEpoch(map['matched_at'] ?? 0),
+      matched_at: matchedAt,
     );
   }
   

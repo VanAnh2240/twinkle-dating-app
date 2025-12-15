@@ -35,8 +35,8 @@ class AuthController extends GetxController {
     } else {
       _usersModel.value = await FirestoreService().getUserById(user.uid);
 
-      if (Get.currentRoute != AppRoutes.home) {
-        Get.offAllNamed(AppRoutes.home);
+      if (Get.currentRoute != AppRoutes.main) {
+        Get.offAllNamed(AppRoutes.main);
       }
     }
     if (!_isinitialized.value) {
@@ -60,11 +60,9 @@ class AuthController extends GetxController {
       _isLoading.value = true;
       _error.value = '';
       UsersModel? usersModel = await _authService.signInWithEmailPassword(email, password);
-      //gọi method signInWithEmailPassword đã định nghĩa trong file services/auth_service.dart
-      //trả về data user đã được authentic
       if (usersModel != null) {
         _usersModel.value = usersModel;
-        Get.offAllNamed(AppRoutes.home);
+        Get.offAllNamed(AppRoutes.main);
       }
     } catch (e) {
       _error.value = e.toString();

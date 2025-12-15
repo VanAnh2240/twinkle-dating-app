@@ -50,8 +50,6 @@ class AuthService {
           password_hash: password,
           gender: "",
           date_of_birth: null,
-          bio: "",
-          location: "",
           profile_picture: "",
           is_online: true,
           last_seen: DateTime.now(),

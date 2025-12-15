@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
+import 'package:twinkle/models/chat_model.dart';
 import 'package:twinkle/models/messages_model.dart';
 import 'package:twinkle/models/users_model.dart';
 import 'package:twinkle/services/firestore_service.dart';
@@ -9,8 +10,9 @@ import 'package:uuid/uuid.dart';
 class ChatController extends GetxController {
   final FirestoreService _firestoreService = Get.find<FirestoreService>();
   final AuthController _authController = Get.find<AuthController>();
-  final TextEditingController messageController =  TextEditingController();
+  final TextEditingController messageController = TextEditingController();
   final Uuid _uuid = Uuid();
+  ChatsModel? _chatCache;
 
   ScrollController? _scrollController;
   ScrollController get scrollController {
@@ -29,33 +31,52 @@ class ChatController extends GetxController {
 
   List<MessagesModel> get messsages => _messages;
   bool get isLoading => _isLoading.value;
-  bool get isSendong => _isSending.value;
+  bool get isSending => _isSending.value;
   String get error => _error.value;
   UsersModel? get otherUser => _otherUser.value;
   String get chatID => _chatID.value;
   bool get isTyping => _isTyping.value;
 
   @override
-  void onInit(){
+  void onInit() {
     super.onInit();
     _initializedChat();
     messageController.addListener(_onMessageChanged);
   }
+  @override
+  void dispose() {
+    messageController.dispose();
+    super.dispose();
+  }
 
   @override
-  void onClose(){
+  void onClose() {
     _isChatActive.value = false;
     _markMessageAsRead();
+    messageController.removeListener(_onMessageChanged);
+    messageController.dispose();
+    _scrollController?.dispose();
+    _scrollController = null;
     super.onClose();
-  }//đóng chatbox => inactive chat
-  
-
+  }
 
   void _initializedChat() {
     final arg = Get.arguments;
-    if(arg != null) {
+    print("🔍 Chat arguments: $arg");
+    
+    if (arg != null) {
       _chatID.value = arg['chat_id'] ?? '';
       _otherUser.value = arg['other_user'];
+      
+      print("🔍 Chat initialized - ID: ${_chatID.value}, Other user: ${_otherUser.value?.user_id}");
+      
+      if (_otherUser.value == null) {
+        print("❌ Other user is null!");
+        Get.snackbar("Error", "Cannot load chat user");
+        return;
+      }
+      
+      _isChatActive.value = true;
       _loadMessages();
       _markMessageAsRead();
     }
@@ -71,13 +92,13 @@ class ChatController extends GetxController {
       );
     }
 
-    ever(_messages, List<MessagesModel> messageList) {
-      if(_isChatActive.value) {
+    ever(_messages, (List<MessagesModel> messageList) {
+      if (_isChatActive.value) {
         _markUnReadMessageAsRead(messageList);
       }
 
-      _scrollToBottom(); //scroll newest message
-    }
+      _scrollToBottom();
+    });
   }
   
   void _scrollToBottom() {
@@ -96,9 +117,12 @@ class ChatController extends GetxController {
     final currentUserID = _authController.user?.uid;
     if (currentUserID == null) return;
 
-    try{
-      final unreadMessages = msgList.where((messsage) => 
-        messsage.receiver_id == currentUserID && !messsage.is_read && messsage.sender_id != currentUserID).toList();
+    try {
+      final unreadMessages = msgList.where((message) => 
+        message.receiver_id == currentUserID && 
+        !message.is_read && 
+        message.sender_id != currentUserID
+      ).toList();
 
       for (var msg in unreadMessages) {
         await _firestoreService.markMessageAsRead(msg.message_id);
@@ -106,15 +130,15 @@ class ChatController extends GetxController {
 
       if (unreadMessages.isNotEmpty && _chatID.value.isNotEmpty) {
         await _firestoreService.restoreChatForUser(_chatID.value, currentUserID);
+        await _firestoreService.restoreUnreadCount(_chatID.value, currentUserID);
       }
-    }catch(e){
-      print("Error markUnReadMessageAsRead: ${e.toString()}");
+    } catch (e) {
+      print("❌ Error markUnReadMessageAsRead: ${e.toString()}");
     }
   }
 
-  //delete chat
-  Future<void> deleteChat() async {
-    try{
+  Future<void> deleteChat(ChatsModel chat) async {
+    try {
       final currentUserID = _authController.user?.uid;
       if (currentUserID == null || _chatID.value.isEmpty) return;
 
@@ -141,13 +165,13 @@ class ChatController extends GetxController {
 
         Get.delete<ChatController>(tag: _chatID.value);
         Get.back();
-        Get.snackbar("Sucess", "Chat deleted");
+        Get.snackbar("Success", "Chat deleted");
       }
-    }catch(e){
+    } catch (e) {
       _error.value = e.toString();
-      print(e);
+      print("❌ Error deleting chat: $e");
       Get.snackbar("Error", "Failed to delete chat");
-    }finally{
+    } finally {
       _isLoading.value = false;
     }
   }
@@ -156,25 +180,35 @@ class ChatController extends GetxController {
     _isTyping.value = messageController.text.isNotEmpty;
   }
 
-  Future<void> sendMessage() async{
+  Future<void> sendMessage() async {
     final currentUserID = _authController.user?.uid;
     final otherUserID = _otherUser.value?.user_id;
     final text = messageController.text.trim();
 
-    messageController.clear();
+    print("🔍 Sending message - Current: $currentUserID, Other: $otherUserID, Text length: ${text.length}");
 
-    if(currentUserID == null || otherUserID == null || text.isEmpty) {
-      Get.snackbar ("Eror", 'You cannot send messages to this user');
+    if (currentUserID == null || otherUserID == null || text.isEmpty) {
+      Get.snackbar("Error", 'You cannot send messages to this user');
       return;
     }
 
-    if (await _firestoreService.isUserBlocked(currentUserID, otherUserID) || await _firestoreService.isUserUnmatched(currentUserID, otherUserID)) {
-      Get.snackbar ("Eror", 'You cannot send messages to this user any more');
-      return;
-    }
-
-    try{
+    try {
       _isSending.value = true;
+
+      // Kiểm tra blocked/unmatched
+      final isBlocked = await _firestoreService.isUserBlocked(currentUserID, otherUserID);
+      final isUnmatched = await _firestoreService.isUserUnmatched(currentUserID, otherUserID);
+      
+      print("🔍 Block status: $isBlocked, Unmatch status: $isUnmatched");
+
+      if (isBlocked || isUnmatched) {
+        Get.snackbar("Error", 'You cannot send messages to this user anymore');
+        messageController.text = text; // Restore text
+        return;
+      }
+
+      // Clear message sau khi validate thành công
+      messageController.clear();
 
       final message = MessagesModel(
         message_id: _uuid.v4(), 
@@ -184,26 +218,30 @@ class ChatController extends GetxController {
         sent_at: DateTime.now()
       );
 
+      print("📤 Attempting to send message: ${message.message_id}");
       await _firestoreService.sendMessage(message);
+      print("✅ Message sent successfully");
+
       _isTyping.value = false;
 
-    }catch(e){
-      Get.snackbar ("Eror", 'You cannot send messages');
-      print(e);
-    }finally{
-      _isLoading.value = false;
+    } catch (e) {
+      print("❌ Error sending message: $e");
+      Get.snackbar("Error", 'Failed to send message: ${e.toString()}');
+      messageController.text = text; // Restore text on error
+    } finally {
+      _isSending.value = false;
     }
   }
   
   void _markMessageAsRead() async {
     final currentUserID = _authController.user?.uid;
     
-    if (currentUserID != null && _chatID.value.isNotEmpty){
-      try{
+    if (currentUserID != null && _chatID.value.isNotEmpty) {
+      try {
         await _firestoreService.restoreChatForUser(_chatID.value, currentUserID);
-      }catch(e){
-        print(e);
-      };
+      } catch (e) {
+        print("❌ Error marking messages as read: $e");
+      }
     }
   }
 
@@ -212,7 +250,7 @@ class ChatController extends GetxController {
     _markUnReadMessageAsRead(_messages);
   }
 
-  void onChatPaused(){
+  void onChatPaused() {
     _isChatActive.value = false;
   }
 
@@ -224,26 +262,25 @@ class ChatController extends GetxController {
     final now = DateTime.now();
     final diff = now.difference(timestamp);
 
-    if(diff.inMinutes < 1){
+    if (diff.inMinutes < 1) {
       return "Just now";
     }
-    else if (diff.inHours < 1){
+    else if (diff.inHours < 1) {
       return '${diff.inMinutes}m ago';
     }
-    else if (diff.inDays < 1){
-      return '${timestamp.hour.toString().padLeft(2,'0')}:${timestamp.minute.toString()..padLeft(2,'0')}';
+    else if (diff.inDays < 1) {
+      return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
     }
-    else if (diff.inDays < 7){
-      final days = ['Mon', 'Tus', 'Web','Thu','Fri','Sat','Sub'];
-      return '${days[timestamp.weekday - 1]} ${timestamp.hour.toString().padLeft(2,'0')}: ${timestamp.minute.toString()..padLeft(2,'0')}';
+    else if (diff.inDays < 7) {
+      final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return '${days[timestamp.weekday - 1]} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
     }
-    else{
+    else {
       return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
     }
-
   }
 
-  void clearError(){
+  void clearError() {
     _error.value = '';
   }
 }
