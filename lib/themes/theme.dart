@@ -6,6 +6,7 @@ class AppTheme {
   static const Color primaryColor = Colors.pinkAccent;
   static const Color secondaryColor = Color.fromARGB(255, 125, 166, 255);
   static const Color tertiaryColor = Color.fromARGB(255, 233, 167, 245);
+  static const Color quaternaryColor = Color.fromARGB(255, 252, 114, 213);
   static const Color backgroundColor = Color.fromARGB(255, 8, 8, 8);
   static const Color textPrimaryColor = Colors.white;
   static const Color textSecondaryColor = Color.fromARGB(179, 214, 214, 214);
@@ -22,7 +23,7 @@ class AppTheme {
       secondary: const Color.fromARGB(255, 137, 174, 254),
       tertiary: tertiaryColor,
       inversePrimary: Colors.grey,
-      error: errorColor,
+      error: const Color.fromARGB(255, 218, 52, 52),
     ),
 
     // TEXT THEME

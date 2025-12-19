@@ -11,7 +11,7 @@ import 'package:twinkle/models/users_model.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance; 
   
-  //=======================================USERS=======================================//
+  //=======================================USERS & PROFILE SETUP=======================================//
   // Create user FirebaseAuth
   Future<void> createUser(String uid, UsersModel user) async {
     try {
@@ -69,6 +69,8 @@ class FirestoreService {
         .map((doc) => doc.exists ? UsersModel.fromMap(doc.data()!) : null);
   }
 
+
+
   Future<void> updateUser(UsersModel user) async {
     try{
       await _firestore.collection('Users').doc(user.user_id).update(user.toMap());
@@ -76,6 +78,14 @@ class FirestoreService {
     }catch(e){
       throw Exception('Failed to update profile');
     }
+  }
+
+  Future<void> updateUserFields(
+      String userId, Map<String, dynamic> fields) async {
+    await _firestore
+        .collection('Users')
+        .doc(userId)
+        .update(fields);
   }
 
   // Get all User Stream
@@ -87,7 +97,64 @@ class FirestoreService {
     );
   }
 
-  
+  // Thêm vào FirestoreService
+  Future<Map<String, dynamic>?> getUserDocument(String userId) async {
+    try {
+      final doc = await _firestore.collection('Users').doc(userId).get();
+      return doc.data();
+    } catch (e) {
+      print('Error getting user document: $e');
+      return null;
+    }
+  }
+
+  //=======================================PROFILE SETUP=======================================//
+  //Get user profile
+  Future<ProfileModel?> getUserProfile(String userId) async {
+    try {
+      final doc = await _firestore
+          .collection('Profiles')
+          .doc(userId)
+          .get();
+
+      if (!doc.exists) return null;
+
+      final data = doc.data();
+      if (data == null) return null;
+
+      return ProfileModel.fromMap(data);
+    } catch (e) {
+      throw Exception('Failed to get user profile: $e');
+    }
+  }
+
+  //Update user profile
+  Future<void> updateProfileFields(
+      String userId, Map<String, dynamic> fields) async {
+    await _firestore
+        .collection('Profiles')
+        .doc(userId)
+        .set(fields, SetOptions(merge: true));
+  }
+
+  //Check if profile exists
+  Future<bool> profileExists(String userId) async {
+    final doc =
+        await _firestore.collection('Profiles').doc(userId).get();
+    return doc.exists;
+  }
+
+  //=======================================PROFILE UPDATE=======================================//
+  // Update user with partial data (Map)
+  Future<void> updateUserPartial(String userId, Map<String, dynamic> data) async {
+    try{
+      await _firestore.collection('Users').doc(userId).update(data);
+      print("Update user partial data");
+    }catch(e){
+      throw Exception('Failed to update user: $e');
+    }
+  }
+
   //=======================================MATCH=======================================//
   
   Future<void> requestOrCreateMatch(String currentUserID, String targetUserID) async {
@@ -782,22 +849,6 @@ class FirestoreService {
     }
   }
 
-  //=======================================PROFILE=======================================//
-  Future<ProfileModel?> getUserProfile(String userId) async {
-    try {
-      final doc = await _firestore
-          .collection('Profiles')
-          .doc(userId)
-          .get();
+  Future<void> createProfile(String userId, ProfileModel newProfile) async {}
 
-      if (!doc.exists) return null;
-
-      final data = doc.data();
-      if (data == null) return null;
-
-      return ProfileModel.fromMap(data);
-    } catch (e) {
-      throw Exception('Failed to get user profile: $e');
-    }
-  }
 }

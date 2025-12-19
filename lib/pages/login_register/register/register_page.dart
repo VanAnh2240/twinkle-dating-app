@@ -87,53 +87,6 @@ class RegisterPageState extends State<RegisterPage> {
               
                   const SizedBox(height: 25),
               
-                  //name textfield
-                  // Row(
-                  //   children: [
-                  //     Expanded(
-                  //       child: TextFormField(
-                  //         controller: firstnameController,
-                  //         decoration: InputDecoration(
-                  //           labelText: 'First name',
-                  //           prefixIcon: Icon(
-                  //             Icons.person,
-                  //             color: Theme.of(context).colorScheme.primary,
-                  //           ),
-                  //           hintText: "First name",
-                  //         ),
-                  //         validator: (value) {
-                  //           if (value!.isEmpty) {
-                  //             return 'Enter first name';
-                  //           }
-                  //           return null;
-                  //         },
-                  //       ),
-                  //     ),
-              
-                  //     const SizedBox(width: 10), // khoảng cách giữa 2 ô
-              
-                  //     Expanded(
-                  //       child: TextFormField(
-                  //         controller: lastnameController,
-                  //         decoration: InputDecoration(
-                  //           labelText: 'Last name',
-                  //           prefixIcon: Icon(
-                  //             Icons.person,
-                  //             color: Theme.of(context).colorScheme.primary,
-                  //           ),
-                  //           hintText: "Last name",
-                  //         ),
-                  //         validator: (value) {
-                  //           if (value!.isEmpty) {
-                  //             return 'Enter last name';
-                  //           }
-                  //           return null;
-                  //         },
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
-               
                   const SizedBox(height: 15),
                         
                   // email textfield

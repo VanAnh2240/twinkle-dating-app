@@ -91,4 +91,45 @@ class AuthService {
   Future<void> signOut() async {
     await _auth.signOut();
   }
+
+
+  // Re-authenticate user (required for sensitive operations like password change)
+  Future<UserCredential> reauthenticateUser(String email, String password) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user == null) {
+        throw Exception("No user is currently signed in");
+      }
+
+      // Create credential
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+
+      // Re-authenticate
+      return await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw Exception("Failed to re-authenticate: ${e.code}");
+    }
+  }
+
+  // Change password
+  Future<void> changePassword(String currentPassword, String newPassword) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        throw Exception("No user is currently signed in");
+      }
+
+      // Re-authenticate first
+      await reauthenticateUser(user.email!, currentPassword);
+
+      // Update password
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw Exception("Failed to change password: ${e.code}");
+    }
+  }
+
 }

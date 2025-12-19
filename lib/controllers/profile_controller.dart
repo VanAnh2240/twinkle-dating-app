@@ -4,7 +4,7 @@ import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:twinkle/models/profile_model.dart';
-import 'package:twinkle/services/profile_service.dart';
+import 'package:twinkle/services/profile/profile_service.dart';
 
 class ProfileController extends GetxController {
   final ProfileService _profileService = ProfileService();

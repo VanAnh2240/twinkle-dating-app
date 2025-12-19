@@ -4,7 +4,9 @@ import 'package:twinkle/controllers/main_controller.dart';
 import 'package:twinkle/pages/chatlist_page.dart';
 import 'package:twinkle/pages/home_page.dart';
 import 'package:twinkle/pages/match_page.dart';
+import 'package:twinkle/pages/profile/my_profile_page.dart';
 import 'package:twinkle/pages/profile_page.dart';
+import 'package:twinkle/pages/subscriptions_plan_page.dart';
 import 'package:twinkle/themes/theme.dart';
 
 class MainPage extends StatelessWidget {
@@ -21,8 +23,8 @@ class MainPage extends StatelessWidget {
           HomePage(),     
           MatchPage(),    
           ChatListPage(), 
-          ProfilePage(),  
-          //ProfileSetupPage(),  
+          MyProfilePage(),  
+          SubscriptionPage(), 
         ],
       ),
       bottomNavigationBar: Obx(
@@ -49,7 +51,7 @@ class MainPage extends StatelessWidget {
                   _navItem(Icons.favorite, 1),
                   _navItem(Icons.mail_rounded, 2, badge: controller.getUnreadCount()),
                   _navItem(Icons.person, 3),
-                 // _navItem(Icons.settings, 4),
+                  _navItem(Icons.money, 4),
                 ],
               ),
             ),
