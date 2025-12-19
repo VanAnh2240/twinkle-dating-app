@@ -45,6 +45,8 @@ dependencies:
   flutter_card_swiper: ^2.0.4
   appinio_swiper: ^2.1.1
   intl: ^0.19.0
+  http: ^1.2.0
+  crypto: ^3.0.3
 
 
 
