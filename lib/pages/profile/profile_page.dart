@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
 import 'package:twinkle/services/firestore_service.dart';
+import 'package:twinkle/services/profile_service.dart';
 import 'package:twinkle/models/profile_model.dart';
 import 'package:twinkle/models/users_model.dart';
 import 'package:twinkle/routes/app_routes.dart';
-import 'package:twinkle/services/profile/profile_service.dart';
 import 'package:twinkle/themes/theme.dart';
 
 class ProfilePage extends StatefulWidget {

@@ -3,8 +3,6 @@ import 'package:get/get.dart';
 import 'package:twinkle/controllers/payment_transactions_controller.dart';
 import 'package:twinkle/controllers/subscriptions_controller.dart';
 
-/// Main subscription page displaying all available plans
-/// Shows Free, Plus, and Premium options with features and pricing
 class SubscriptionPage extends StatelessWidget {
   const SubscriptionPage({Key? key}) : super(key: key);
 

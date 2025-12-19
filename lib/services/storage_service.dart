@@ -1,5 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as path;
 
 class StorageService {
@@ -29,6 +31,38 @@ class StorageService {
       return downloadUrl;
     } catch (e) {
       print('Error uploading image: $e');
+      return null;
+    }
+  }
+
+  /// Upload image from bytes (for web platform)
+  /// Returns the download URL
+  Future<String?> uploadImageFromBytes({
+    required String userId,
+    required Uint8List bytes,
+    required String fileName,
+    String folder = 'profile_photos',
+  }) async {
+    try {
+      // Create unique filename
+      String uniqueFileName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
+      String filePath = '$folder/$userId/$uniqueFileName';
+
+      // Upload bytes
+      Reference ref = _storage.ref().child(filePath);
+      UploadTask uploadTask = ref.putData(
+        bytes,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+
+      // Wait for upload to complete
+      TaskSnapshot snapshot = await uploadTask;
+      
+      // Get download URL
+      String downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } catch (e) {
+      print('Error uploading image from bytes: $e');
       return null;
     }
   }

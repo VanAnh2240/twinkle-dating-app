@@ -87,14 +87,65 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
         _newPasswordController.text,
       );
       
-      Get.snackbar(
-        'Success',
-        'Password updated successfully',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
+      // Show success dialog
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: Colors.grey[900],
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Success!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Your password has been updated successfully.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey[400],
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              Center(
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    Get.back();
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'OK',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       );
-      
-      Get.back();
     } catch (e) {
       Get.snackbar(
         'Error',
@@ -185,26 +236,22 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
               _buildRequirement(
                 text: "Must be at least 8 characters long",
                 isValid: _newPasswordController.text.length >= 8,
-                checkmarkColor: Colors.green,
               ),
               SizedBox(height: 8),
               _buildRequirement(
                 text: "Include at least 1 letter and 1 number",
                 isValid: _newPasswordController.text.contains(RegExp(r'[a-zA-Z]')) &&
                          _newPasswordController.text.contains(RegExp(r'[0-9]')),
-                checkmarkColor: AppTheme.primaryColor,
               ),
               SizedBox(height: 8),
               _buildRequirement(
                 text: "Contain at least one upper letter (A-Z)",
                 isValid: _newPasswordController.text.contains(RegExp(r'[A-Z]')),
-                checkmarkColor: Colors.green,
               ),
               SizedBox(height: 8),
               _buildRequirement(
                 text: "Contain at least one special character (e.g., !@#\$%^&*)",
                 isValid: _newPasswordController.text.contains(RegExp(r'[!@#$%^&*]')),
-                checkmarkColor: Colors.green,
               ),
               SizedBox(height: 24),
             ],
@@ -280,14 +327,12 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   Widget _buildRequirement({
     required String text,
     required bool isValid,
-    Color? checkmarkColor,
   }) {
-    final color = checkmarkColor ?? (isValid ? Colors.green : Colors.grey);
     return Row(
       children: [
         Icon(
-          isValid ? Icons.check_circle : Icons.circle_outlined,
-          color: isValid ? color : Colors.grey,
+          isValid ? Icons.check_circle : Icons.cancel,
+          color: isValid ? Colors.green : Colors.red,
           size: 20,
         ),
         SizedBox(width: 8),

@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
 import 'package:twinkle/services/firestore_service.dart';
+import 'package:twinkle/services/profile_service.dart';
+import 'package:twinkle/services/cloudinary_service.dart';
 import 'package:twinkle/models/profile_model.dart';
 import 'package:twinkle/models/users_model.dart';
-import 'package:twinkle/services/profile/profile_service.dart';
-import 'package:twinkle/services/profile/storage_service.dart';
 import 'package:twinkle/themes/theme.dart';
-import 'package:twinkle/routes/app_routes.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -22,7 +21,7 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
   final AuthController authController = Get.find<AuthController>();
   final FirestoreService _firestoreService = Get.put(FirestoreService());
   final ProfileService _profileService = ProfileService();
-  final StorageService _storageService = StorageService();
+  final CloudinaryService _cloudinaryService = CloudinaryService();
   final ImagePicker _imagePicker = ImagePicker();
   
   late TabController _tabController;
@@ -39,6 +38,28 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
   List<String> _values = [];
   List<String> _photos = [];
   Map<String, String> _aboutMe = {};
+  
+  // Available options for selection
+  final List<String> _availableValues = [
+    'Humor', 'Kindness', 'Ambition', 'Honesty', 'Loyalty', 
+    'Intelligence', 'Creativity', 'Patience', 'Empathy', 'Confidence'
+  ];
+  
+  final Map<String, List<String>> _aboutMeOptions = {
+    'Work': ['Student', 'Employee', 'Self-employed', 'Freelancer', 'Unemployed', 'Other'],
+    'Gender': ['Male', 'Female', 'Non-binary', 'Prefer not to say'],
+    'Location': ['Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Cần Thơ', 'Hải Phòng', 'Other'],
+    'Hometown': ['Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Cần Thơ', 'Hải Phòng', 'Other'],
+    'Height': ['Under 150cm', '150-160cm', '160-170cm', '170-180cm', '180-190cm', 'Over 190cm'],
+    'Exercise': ['Never', 'Sometimes', 'Regularly', 'Daily'],
+    'Educational level': ['High School', 'College', 'Bachelor', 'Master', 'PhD'],
+    'Drinking': ['Never', 'Socially', 'Regularly'],
+    'Smoking': ['Never', 'Sometimes', 'Regularly'],
+    'Looking for': ['Friendship', 'Dating', 'Long-term relationship', 'Marriage'],
+    'Family plans': ['Want children', 'Don\'t want children', 'Not sure yet', 'Already have children'],
+    'Star sign': ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'],
+    'Religion': ['Christianity', 'Buddhism', 'Islam', 'Hinduism', 'Atheist', 'Other', 'Prefer not to say'],
+  };
 
   @override
   void initState() {
@@ -69,6 +90,16 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
       _communities = List.from(_profile!.communities);
       _values = List.from(_profile!.values);
       _photos = List.from(_profile!.photos);
+      
+      // Parse about_me list to map
+      _aboutMe = {};
+      for (var item in _profile!.about_me) {
+        final parts = item.split(': ');
+        if (parts.length >= 2) {
+          _aboutMe[parts[0]] = parts.sublist(1).join(': ');
+        }
+      }
+      
       _isLoading = false;
     });
   }
@@ -94,29 +125,69 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
     }
     
     try {
-      final image = await _imagePicker.pickImage(source: ImageSource.gallery);
+      // Pick image with reduced quality for faster upload
+      final image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 70,
+      );
       if (image != null) {
-        final imageFile = File(image.path);
         final userId = authController.user!.uid;
         
-        // Show loading
-        Get.dialog(
-          Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        // Show loading dialog
+        showDialog(
+          context: context,
           barrierDismissible: false,
+          builder: (context) => Center(
+            child: Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: AppTheme.primaryColor),
+                  SizedBox(height: 16),
+                  Text('Uploading...', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
         );
         
-        // Upload to Firebase Storage
-        final downloadUrl = await _storageService.uploadImage(
-          userId: userId,
-          imageFile: imageFile,
-          folder: 'profile_photos',
-        );
+        String? downloadUrl;
         
-        Get.back(); // Close loading dialog
+        try {
+          // Use Cloudinary for both web and mobile
+          final bytes = await image.readAsBytes();
+          final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+          print('Uploading image to Cloudinary: $fileName, size: ${bytes.length} bytes');
+          
+          downloadUrl = await _cloudinaryService.uploadImageUnsigned(
+            bytes: bytes,
+            fileName: fileName,
+            folder: 'profile_photos',
+          );
+        } catch (uploadError) {
+          print('Upload error: $uploadError');
+          Navigator.of(context).pop(); // Close loading dialog
+          Get.snackbar(
+            'Error',
+            'Upload failed: $uploadError',
+            backgroundColor: Colors.red,
+            colorText: Colors.white,
+          );
+          return;
+        }
+        
+        Navigator.of(context).pop(); // Close loading dialog
         
         if (downloadUrl != null) {
           setState(() {
-            _photos.add(downloadUrl);
+            _photos.add(downloadUrl!);
           });
           
           // Save to Firestore
@@ -131,14 +202,17 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
         } else {
           Get.snackbar(
             'Error',
-            'Failed to upload photo',
+            'Failed to upload photo - no URL returned',
             backgroundColor: Colors.red,
             colorText: Colors.white,
           );
         }
       }
     } catch (e) {
-      Get.back(); // Close loading dialog if open
+      // Try to close dialog if open
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
       Get.snackbar(
         'Error',
         'Failed to pick image: $e',
@@ -163,9 +237,12 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
       // Remove from Firestore
       await _profileService.removePhoto(userId, photoUrl);
       
-      // Delete from Firebase Storage if it's a URL (not local path)
+      // Delete from Cloudinary if it's a URL
       if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
-        await _storageService.deleteImage(photoUrl);
+        final publicId = _cloudinaryService.getPublicIdFromUrl(photoUrl);
+        if (publicId != null) {
+          await _cloudinaryService.deleteImage(publicId);
+        }
       }
       
       Get.snackbar(
@@ -208,25 +285,242 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
     }
   }
 
+  void _removeCommunity(int index) {
+    setState(() {
+      _communities.removeAt(index);
+    });
+  }
+
+  // Show Personal Values selection dialog
+  void _showValuesDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Personal Values',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Choose qualities you value in a person',
+                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                  SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _availableValues.map((value) {
+                      final isSelected = _values.contains(value);
+                      return GestureDetector(
+                        onTap: () {
+                          setModalState(() {
+                            if (isSelected) {
+                              _values.remove(value);
+                            } else {
+                              _values.add(value);
+                            }
+                          });
+                          setState(() {});
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primaryColor : Colors.grey[800],
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected ? AppTheme.primaryColor : Colors.grey[700]!,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isSelected)
+                                Icon(Icons.check, color: Colors.white, size: 16),
+                              if (isSelected) SizedBox(width: 4),
+                              Text(
+                                value,
+                                style: TextStyle(color: Colors.white, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text('Done', style: TextStyle(color: Colors.white, fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Show About You selection dialog
+  void _showAboutMeDialog(String label) {
+    final options = _aboutMeOptions[label] ?? [];
+    if (options.isEmpty) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 16),
+              ...options.map((option) {
+                final isSelected = _aboutMe[label] == option;
+                return ListTile(
+                  onTap: () {
+                    setState(() {
+                      _aboutMe[label] = option;
+                    });
+                    Navigator.pop(context);
+                  },
+                  leading: Icon(
+                    isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                    color: isSelected ? AppTheme.primaryColor : Colors.grey,
+                  ),
+                  title: Text(
+                    option,
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                  trailing: isSelected
+                      ? Icon(Icons.check, color: AppTheme.primaryColor)
+                      : null,
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showSuccessDialog(String message) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Success!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'OK',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _saveProfile() async {
     try {
+      // Convert aboutMe map to list format: "label: value"
+      final aboutMeList = _aboutMe.entries
+          .map((e) => '${e.key}: ${e.value}')
+          .toList();
+      
       final updatedProfile = _profile!.copyWith(
         bio: _bioController.text.trim(),
         interests: _interests,
         communities: _communities,
         values: _values,
         photos: _photos,
+        about_me: aboutMeList,
       );
       
       final success = await _profileService.updateProfile(updatedProfile);
       
       if (success) {
-        Get.snackbar(
-          'Success',
-          'Profile updated successfully',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        await _showSuccessDialog('Profile updated successfully');
         await _loadData();
       } else {
         Get.snackbar(
@@ -376,25 +670,55 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
           _buildSection(
             title: "My communities",
             subtitle: "Add more than 3 causes close to your heart.",
-            child: _buildAddField(
-              controller: _communityController,
-              hint: "Add your causes and communities",
-              onAdd: _addCommunity,
+            child: Column(
+              children: [
+                _buildAddField(
+                  controller: _communityController,
+                  hint: "Add your causes and communities",
+                  onAdd: _addCommunity,
+                ),
+                if (_communities.isNotEmpty) ...[
+                  SizedBox(height: 12),
+                  _buildCommunityTags(),
+                ],
+              ],
             ),
           ),
           SizedBox(height: 32),
           _buildSection(
             title: "Personal Value",
             subtitle: "Choose more than 3 qualities you value in a person.",
-            child: Row(
-              children: [
-                Expanded(child: _buildValueTag("Humor")),
-                SizedBox(width: 8),
-                Expanded(child: _buildValueTag("Kindness")),
-                SizedBox(width: 8),
-                Expanded(child: _buildValueTag("Ambition")),
-                Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
-              ],
+            child: GestureDetector(
+              onTap: _showValuesDialog,
+              child: _values.isEmpty
+                  ? Row(
+                      children: [
+                        Expanded(child: _buildValueTag("Humor")),
+                        SizedBox(width: 8),
+                        Expanded(child: _buildValueTag("Kindness")),
+                        SizedBox(width: 8),
+                        Expanded(child: _buildValueTag("Ambition")),
+                        Icon(Icons.arrow_forward_ios, color: Colors.white, size: 16),
+                      ],
+                    )
+                  : Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ..._values.map((v) => _buildSelectedValueTag(v)),
+                        GestureDetector(
+                          onTap: _showValuesDialog,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppTheme.primaryColor),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Icon(Icons.add, color: AppTheme.primaryColor, size: 16),
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
           SizedBox(height: 32),
@@ -632,23 +956,99 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
     );
   }
 
+  Widget _buildSelectedValueTag(String value) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.primaryColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check, color: AppTheme.primaryColor, size: 14),
+          SizedBox(width: 4),
+          Text(value, style: TextStyle(color: Colors.white, fontSize: 14)),
+          SizedBox(width: 4),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _values.remove(value);
+              });
+            },
+            child: Icon(Icons.close, color: Colors.white, size: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommunityTags() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(_communities.length, (index) {
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade800,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.group, color: AppTheme.primaryColor, size: 16),
+              SizedBox(width: 4),
+              Text(_communities[index], style: TextStyle(color: Colors.white, fontSize: 14)),
+              SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => _removeCommunity(index),
+                child: Icon(Icons.close, color: Colors.white, size: 16),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
   Widget _buildAboutYouList(List<Map<String, dynamic>> items) {
     return Column(
       children: items.map((item) {
-        return Padding(
-          padding: EdgeInsets.only(bottom: 12),
-          child: Row(
-            children: [
-              Icon(item['icon'], color: Colors.white, size: 20),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  item['label'],
-                  style: TextStyle(color: Colors.white, fontSize: 16),
+        final label = item['label'] as String;
+        final selectedValue = _aboutMe[label];
+        return GestureDetector(
+          onTap: () => _showAboutMeDialog(label),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Icon(item['icon'], color: Colors.white, size: 20),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                      if (selectedValue != null)
+                        Text(
+                          selectedValue,
+                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 14),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              Icon(Icons.add, color: Colors.white, size: 20),
-            ],
+                Icon(
+                  selectedValue != null ? Icons.check : Icons.add,
+                  color: selectedValue != null ? AppTheme.primaryColor : Colors.white,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
@@ -699,7 +1099,7 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
                         Row(
                           children: [
                             Icon(Icons.location_on, color: Colors.white, size: 16),
-                            Text("Hồ Chí Minh City", style: TextStyle(color: Colors.white, fontSize: 14)),
+                            Text(_aboutMe['Location'] ?? _profile?.location ?? 'Unknown', style: TextStyle(color: Colors.white, fontSize: 14)),
                           ],
                         ),
                         SizedBox(height: 4),
@@ -727,8 +1127,10 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
             SizedBox(height: 24),
           ],
           // I'm looking for
-          _buildPreviewSection("I'm looking for", "✨ a long-term relationship"),
-          SizedBox(height: 24),
+          if (_aboutMe['Looking for'] != null && _aboutMe['Looking for']!.isNotEmpty) ...[
+            _buildPreviewSection("I'm looking for", "✨ ${_aboutMe['Looking for']}"),
+            SizedBox(height: 24),
+          ],
           // My interests
           if (_interests.isNotEmpty) ...[
             Column(
@@ -804,7 +1206,8 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
             SizedBox(height: 24),
           ],
           // Swipe right if you
-          _buildPreviewSection("Swipe right if you", "🚬 No smoking"),
+          if (_aboutMe['Smoking'] != null || _aboutMe['Drinking'] != null)
+            _buildPreviewSection("Swipe right if you", _buildSwipeRightText()),
         ],
       ),
     );
@@ -834,7 +1237,49 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
   }
 
   String _buildAboutMeTags() {
-    return "📏 180 cm • ❌ Almost never • 🎓 No college • 🍷 No • 🌿 No • ☪️ Islam • 👶 Don't want kids";
+    final Map<String, String> emojiMap = {
+      'Height': '📏',
+      'Exercise': '🏃',
+      'Educational level': '🎓',
+      'Drinking': '🍷',
+      'Smoking': '🚬',
+      'Religion': '☪️',
+      'Family plans': '👶',
+      'Work': '💼',
+      'Gender': '⚧',
+      'Location': '📍',
+      'Hometown': '🏠',
+      'Star sign': '⭐',
+    };
+    
+    List<String> tags = [];
+    _aboutMe.forEach((key, value) {
+      if (value.isNotEmpty && key != 'Looking for') {
+        final emoji = emojiMap[key] ?? '•';
+        tags.add('$emoji $value');
+      }
+    });
+    
+    return tags.isEmpty ? 'No info added yet' : tags.join(' • ');
+  }
+
+  String _buildSwipeRightText() {
+    List<String> preferences = [];
+    if (_aboutMe['Smoking'] != null) {
+      if (_aboutMe['Smoking'] == 'Never') {
+        preferences.add('🚭 No smoking');
+      } else {
+        preferences.add('🚬 ${_aboutMe['Smoking']}');
+      }
+    }
+    if (_aboutMe['Drinking'] != null) {
+      if (_aboutMe['Drinking'] == 'Never') {
+        preferences.add('🚫🍷 No drinking');
+      } else {
+        preferences.add('🍷 ${_aboutMe['Drinking']}');
+      }
+    }
+    return preferences.isEmpty ? 'No preferences set' : preferences.join(' • ');
   }
 
   Widget _buildInterestTags() {
@@ -851,23 +1296,6 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text("$icon $i", style: TextStyle(color: Colors.white, fontSize: 14)),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildCommunityTags() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _communities.map((c) {
-        return Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.white, width: 1),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text("✊ $c", style: TextStyle(color: Colors.white, fontSize: 14)),
         );
       }).toList(),
     );

@@ -50,6 +50,64 @@ class _BirthdaySettingPageState extends State<BirthdaySettingPage> {
     }
   }
 
+  Future<void> _showSuccessDialog(String message) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.grey[900],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Success!',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Center(
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text(
+                  'OK',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _saveBirthday() async {
     if (_selectedDate == null || _selectedMonth == null || _selectedYear == null) {
       Get.snackbar(
@@ -76,13 +134,7 @@ class _BirthdaySettingPageState extends State<BirthdaySettingPage> {
         },
       );
       
-      Get.snackbar(
-        'Success',
-        'Birthday updated successfully',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
-      
+      await _showSuccessDialog('Birthday updated successfully');
       Get.back();
     } catch (e) {
       Get.snackbar(
