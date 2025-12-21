@@ -1,4 +1,4 @@
-// ==================== PHOTOS STEP ====================
+// ==================== PHOTOS STEP - FIXED ====================
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -39,12 +39,43 @@ class PhotosStep extends StatelessWidget {
     } catch (e) {
       Get.snackbar(
         'Error',
-        'Failed to pick image',
+        'Failed to pick image: $e',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
     }
+  }
+
+  Future<void> _handleComplete() async {
+    // Validate photos
+    if (controller.photos.length < 2) {
+      Get.snackbar(
+        'Incomplete',
+        'Please upload at least 2 photos',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    if (controller.profilePicture.value.isEmpty) {
+      Get.snackbar(
+        'Incomplete',
+        'Please select a profile picture',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    // Save current step (photos)
+    await controller.saveCurrentStep();
+    
+    // Complete setup
+    await controller.completeSetup();
   }
 
   @override
@@ -79,7 +110,7 @@ class PhotosStep extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                /// GRID PHOTOS (FIXED)
+                /// GRID PHOTOS
                 Obx(() {
                   final photos = controller.photos;
                   final profilePic = controller.profilePicture.value;
@@ -125,7 +156,6 @@ class PhotosStep extends StatelessWidget {
                                         width: double.infinity,
                                         height: double.infinity,
                                         errorBuilder: (context, error, stackTrace) {
-                                          // Fallback if file doesn't exist
                                           return const Center(
                                             child: Icon(
                                               Icons.broken_image,
@@ -250,14 +280,12 @@ class PhotosStep extends StatelessWidget {
             return SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    canProceed && !loading ? controller.completeSetup : null,
+                onPressed: canProceed && !loading ? _handleComplete : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: canProceed
                       ? AppTheme.quaternaryColor
                       : Colors.grey[800],
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 18),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),

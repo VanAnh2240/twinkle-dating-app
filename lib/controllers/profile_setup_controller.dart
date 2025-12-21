@@ -255,6 +255,7 @@ class ProfileSetupController extends GetxController {
 
     if (isLastStep) {
       await completeSetup();
+
     } else {
       currentStep.value++;
     }
@@ -400,11 +401,6 @@ class ProfileSetupController extends GetxController {
 
   Future<void> completeSetup() async {
     if (!hasRequiredData) {
-      Get.snackbar(
-        'Incomplete',
-        'Please complete all required fields',
-        snackPosition: SnackPosition.BOTTOM,
-      );
       return;
     }
 
@@ -435,11 +431,6 @@ class ProfileSetupController extends GetxController {
       // Navigate to main page
       Get.offAllNamed(AppRoutes.main);
       
-      Get.snackbar(
-        'Success',
-        'Profile setup completed!',
-        snackPosition: SnackPosition.BOTTOM,
-      );
     } catch (e) {
       error.value = e.toString();
       Get.snackbar('Error', 'Failed to complete setup: $e');

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/components/chatting/chat_list.dart';
@@ -7,6 +9,8 @@ import 'package:twinkle/controllers/chat_controller.dart';
 import 'package:twinkle/controllers/main_controller.dart';
 import 'package:twinkle/routes/app_routes.dart';
 import 'package:twinkle/themes/theme.dart';
+import 'package:twinkle/services/profile_service.dart';
+import 'package:twinkle/models/profile_model.dart';
 
 class ChatListPage extends StatefulWidget {
   const ChatListPage({super.key});
@@ -20,7 +24,10 @@ class _ChatListPageState extends State<ChatListPage> {
   final TextEditingController _searchController = TextEditingController();
   bool _ignoreOnChange = false;
   final ChatController chatlistController = Get.put(ChatController());
-
+  final ProfileService _profileService = ProfileService();
+  
+  // Cache profiles để tránh load lại nhiều lần
+  final Map<String, ProfileModel?> _profileCache = {};
 
   @override
   void initState() {
@@ -33,6 +40,150 @@ class _ChatListPageState extends State<ChatListPage> {
     Get.delete<ChatListController>();
     _searchController.dispose();
     super.dispose();
+  }
+
+  // Lấy profile từ cache hoặc load mới
+  Future<ProfileModel?> _getProfile(String userId) async {
+    // Kiểm tra cache trước
+    if (_profileCache.containsKey(userId)) {
+      return _profileCache[userId];
+    }
+
+    // Load từ service nếu chưa có trong cache
+    try {
+      final profile = await _profileService.getProfile(userId);
+      _profileCache[userId] = profile;
+      return profile;
+    } catch (e) {
+      print('Error loading profile for $userId: $e');
+      _profileCache[userId] = null;
+      return null;
+    }
+  }
+
+  // Widget hiển thị avatar với FutureBuilder
+  Widget _buildAvatar(String userId, {double size = 56}) {
+    return FutureBuilder<ProfileModel?>(
+      future: _getProfile(userId),
+      builder: (context, snapshot) {
+        // Nếu đang load
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.secondaryColor,
+            ),
+            child: Center(
+              child: SizedBox(
+                width: size * 0.4,
+                height: size * 0.4,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Lấy avatar URL từ profile
+        final profile = snapshot.data;
+        final avatarUrl = profile?.photos.isNotEmpty == true 
+            ? profile!.photos.first 
+            : null;
+
+        return Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.secondaryColor,
+          ),
+          child: ClipOval(
+            child: _buildAvatarImage(avatarUrl, size),
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget xử lý hiển thị ảnh (Network hoặc File)
+  Widget _buildAvatarImage(String? avatarUrl, double size) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return Icon(
+        Icons.person, 
+        size: size * 0.5, 
+        color: Colors.white54,
+      );
+    }
+
+    // Kiểm tra nếu là URL network
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+      return Image.network(
+        avatarUrl,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: SizedBox(
+              width: size * 0.4,
+              height: size * 0.4,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppTheme.primaryColor,
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / 
+                      loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('Error loading network image: $error');
+          return Icon(
+            Icons.person, 
+            size: size * 0.5, 
+            color: Colors.white54,
+          );
+        },
+      );
+    }
+
+    // Nếu là local file path
+    try {
+      final file = File(avatarUrl);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('Error loading file image: $error');
+            return Icon(
+              Icons.person, 
+              size: size * 0.5, 
+              color: Colors.white54,
+            );
+          },
+        );
+      } else {
+        print('File does not exist: $avatarUrl');
+        return Icon(
+          Icons.person, 
+          size: size * 0.5, 
+          color: Colors.white54,
+        );
+      }
+    } catch (e) {
+      print('Error accessing file: $e');
+      return Icon(
+        Icons.person, 
+        size: size * 0.5, 
+        color: Colors.white54,
+      );
+    }
   }
    
   @override  
@@ -60,7 +211,11 @@ class _ChatListPageState extends State<ChatListPage> {
             Expanded(
               child: RefreshIndicator(
                 color: AppTheme.primaryColor,
-                onRefresh: controller.refreshChats,
+                onRefresh: () async {
+                  // Clear cache khi refresh
+                  _profileCache.clear();
+                  await controller.refreshChats();
+                },
                 child: chatList.isEmpty
                     ? _buildNoResultsOrEmpty(isSearching)
                     : ListView.builder(
@@ -72,12 +227,7 @@ class _ChatListPageState extends State<ChatListPage> {
                           final otherUser = controller.getOtherUser(chat);
                           if (otherUser == null) return const SizedBox.shrink();
                           
-                          return ChatListItem(
-                            chat: chat,
-                            otherUser: otherUser,
-                            lastMessageTime: controller.formatLastMessageTime(chat.last_message_time),
-                            onTap: () => controller.openChat(chat),
-                          );
+                          return _buildChatListItem(chat, otherUser);
                         },
                       ),
               ),
@@ -85,6 +235,111 @@ class _ChatListPageState extends State<ChatListPage> {
           ],
         );
       }),
+    );
+  }
+
+  // Custom ChatListItem với avatar từ profile
+  Widget _buildChatListItem(chat, otherUser) {
+    final currentUserId = controller.authController.user?.uid;
+    final unreadCount = currentUserId != null 
+        ? chat.getUnreadCount(currentUserId) 
+        : 0;
+
+    return InkWell(
+      onTap: () => controller.openChat(chat),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Row(
+          children: [
+            // Avatar với profile photo
+            _buildAvatar(otherUser.user_id),
+            const SizedBox(width: 12),
+            
+            // Thông tin chat
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '${otherUser.first_name} ${otherUser.last_name}',
+                          style: TextStyle(
+                            color: AppTheme.textPrimaryColor,
+                            fontSize: 16,
+                            fontWeight: unreadCount > 0 
+                                ? FontWeight.bold 
+                                : FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        controller.formatLastMessageTime(chat.last_message_time),
+                        style: TextStyle(
+                          color: unreadCount > 0 
+                              ? AppTheme.primaryColor 
+                              : AppTheme.textSecondaryColor,
+                          fontSize: 12,
+                          fontWeight: unreadCount > 0 
+                              ? FontWeight.w600 
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          chat.last_message ?? 'No messages yet',
+                          style: TextStyle(
+                            color: unreadCount > 0 
+                                ? AppTheme.textPrimaryColor 
+                                : AppTheme.textSecondaryColor,
+                            fontSize: 14,
+                            fontWeight: unreadCount > 0 
+                                ? FontWeight.w500 
+                                : FontWeight.normal,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Unread badge
+                      if (unreadCount > 0)
+                        Container(
+                          margin: EdgeInsets.only(left: 8),
+                          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          constraints: BoxConstraints(minWidth: 20),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -184,7 +439,7 @@ class _ChatListPageState extends State<ChatListPage> {
                     color: AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  constraints: BoxConstraints(minHeight: 16, maxWidth: 16),
+                  constraints: BoxConstraints(minHeight: 16, minWidth: 16),
                   child: Text(
                     unreadNotifications > 99 ? "99+" : unreadNotifications.toString(),
                     style: TextStyle(
@@ -192,8 +447,9 @@ class _ChatListPageState extends State<ChatListPage> {
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
+                    textAlign: TextAlign.center,
                   ),
-                )
+                ),
               )
           ],
         )
