@@ -1,11 +1,163 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/match_controller.dart';
 import 'package:twinkle/models/users_model.dart';
 import 'package:twinkle/routes/app_routes.dart';
+import 'package:twinkle/services/profile_service.dart';
+import 'package:twinkle/models/profile_model.dart';
 
-class MatchPage extends StatelessWidget {
+class MatchPage extends StatefulWidget {
+  @override
+  State<MatchPage> createState() => _MatchPageState();
+}
+
+class _MatchPageState extends State<MatchPage> {
   final MatchController controller = Get.put(MatchController());
+  final ProfileService _profileService = ProfileService();
+  
+  // Cache profiles để tránh load lại nhiều lần
+  final Map<String, ProfileModel?> _profileCache = {};
+
+  // Lấy profile từ cache hoặc load mới
+  Future<ProfileModel?> _getProfile(String userId) async {
+    if (_profileCache.containsKey(userId)) {
+      return _profileCache[userId];
+    }
+
+    try {
+      final profile = await _profileService.getProfile(userId);
+      _profileCache[userId] = profile;
+      return profile;
+    } catch (e) {
+      print('Error loading profile for $userId: $e');
+      _profileCache[userId] = null;
+      return null;
+    }
+  }
+
+  // Widget hiển thị avatar với FutureBuilder
+  Widget _buildAvatar(UsersModel user, {double size = 70}) {
+    return FutureBuilder<ProfileModel?>(
+      future: _getProfile(user.user_id),
+      builder: (context, snapshot) {
+        // Nếu đang load
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.grey[800],
+            ),
+            child: Center(
+              child: SizedBox(
+                width: size * 0.4,
+                height: size * 0.4,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.pinkAccent,
+                ),
+              ),
+            ),
+          );
+        }
+
+        // Lấy avatar URL từ profile
+        final profile = snapshot.data;
+        final avatarUrl = profile?.photos.isNotEmpty == true 
+            ? profile!.photos.first 
+            : null;
+
+        return _buildAvatarImage(avatarUrl, user, size);
+      },
+    );
+  }
+
+  // Widget xử lý hiển thị ảnh (Network hoặc File)
+  Widget _buildAvatarImage(String? avatarUrl, UsersModel user, double size) {
+    if (avatarUrl == null || avatarUrl.isEmpty) {
+      return _getDefaultAvatar(user, size);
+    }
+
+    // Kiểm tra nếu là URL network
+    if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+      return Image.network(
+        avatarUrl,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: SizedBox(
+              width: size * 0.4,
+              height: size * 0.4,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.pinkAccent,
+                value: loadingProgress.expectedTotalBytes != null
+                    ? loadingProgress.cumulativeBytesLoaded / 
+                      loadingProgress.expectedTotalBytes!
+                    : null,
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          print('Error loading network image: $error');
+          return _getDefaultAvatar(user, size);
+        },
+      );
+    }
+
+    // Nếu là local file path
+    try {
+      final file = File(avatarUrl);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            print('Error loading file image: $error');
+            return _getDefaultAvatar(user, size);
+          },
+        );
+      } else {
+        return _getDefaultAvatar(user, size);
+      }
+    } catch (e) {
+      print('Error accessing file: $e');
+      return _getDefaultAvatar(user, size);
+    }
+  }
+
+  /// Widget mặc định khi không có ảnh profile
+  Widget _getDefaultAvatar(UsersModel user, double size) {
+    final colors = [
+      Colors.pinkAccent,
+      Colors.purpleAccent,
+      Colors.blueAccent,
+      Colors.tealAccent,
+      Colors.orangeAccent,
+    ];
+
+    final colorIndex = user.user_id.hashCode % colors.length;
+    final color = colors[colorIndex.abs()];
+
+    return Container(
+      color: color.withOpacity(0.3),
+      child: Center(
+        child: Text(
+          user.first_name.isNotEmpty ? user.first_name[0].toUpperCase() : '?',
+          style: TextStyle(
+            fontSize: size * 0.45,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +242,10 @@ class MatchPage extends StatelessWidget {
             _buildSearchBar(),
             Expanded(
               child: RefreshIndicator(
-                onRefresh: controller.refreshMatches,
+                onRefresh: () async {
+                  _profileCache.clear(); // Clear cache on refresh
+                  await controller.refreshMatches();
+                },
                 backgroundColor: Colors.grey[900],
                 color: Colors.pinkAccent,
                 child: ListView.builder(
@@ -238,7 +393,7 @@ class MatchPage extends StatelessWidget {
                                   offset: Offset(0, 4))
                             ],
                           ),
-                          child: ClipOval(child: controller.getProfileImage(user)),
+                          child: ClipOval(child: _buildAvatar(user)),
                         ),
                       ),
                       if (user.is_online)
@@ -402,7 +557,7 @@ class MatchPage extends StatelessWidget {
             height: 50,
             decoration: BoxDecoration(
                 shape: BoxShape.circle, border: Border.all(color: Colors.grey[700]!, width: 2)),
-            child: ClipOval(child: controller.getProfileImage(user)),
+            child: ClipOval(child: _buildAvatar(user, size: 50)),
           ),
           SizedBox(width: 12),
           Expanded(
@@ -518,7 +673,10 @@ class MatchPage extends StatelessWidget {
 
   Widget _buildEmptyState() {
     return RefreshIndicator(
-      onRefresh: controller.refreshMatches,
+      onRefresh: () async {
+        _profileCache.clear();
+        await controller.refreshMatches();
+      },
       backgroundColor: Colors.grey[900],
       color: Colors.pinkAccent,
       child: SingleChildScrollView(

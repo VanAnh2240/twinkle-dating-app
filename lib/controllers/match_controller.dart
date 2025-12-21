@@ -169,64 +169,8 @@ class MatchController extends GetxController {
       _isLoading.value = true;
       _error.value = '';
       _loadMatches();
-      await Future.delayed(Duration(seconds: 1)); // Give time for stream để update
+      await Future.delayed(Duration(seconds: 1)); // Give time for stream to update
     }
-  }
-
-  /// Lấy widget hiển thị ảnh profile (xử lý trường hợp profile_picture rỗng)
-  Widget getProfileImage(UsersModel user) {
-    if (user.profile_picture.isNotEmpty) {
-      return Image.network(
-        user.profile_picture,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) {
-          return _getDefaultAvatar(user);
-        },
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              strokeWidth: 2,
-              color: Colors.pinkAccent,
-            ),
-          );
-        },
-      );
-    } else {
-      return _getDefaultAvatar(user);
-    }
-  }
-
-  /// Widget mặc định khi không có ảnh profile
-  Widget _getDefaultAvatar(UsersModel user) {
-    final colors = [
-      Colors.pinkAccent,
-      Colors.purpleAccent,
-      Colors.blueAccent,
-      Colors.tealAccent,
-      Colors.orangeAccent,
-    ];
-
-    final colorIndex = user.user_id.hashCode % colors.length;
-    final color = colors[colorIndex.abs()];
-
-    return Container(
-      color: color.withOpacity(0.3),
-      child: Center(
-        child: Text(
-          user.first_name.isNotEmpty ? user.first_name[0].toUpperCase() : '?',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
   }
 
   void _showSuccessDialog(String title, String message) {
@@ -360,9 +304,5 @@ class MatchController extends GetxController {
         return 'Last seen ${user.last_seen.day}/${user.last_seen.month}/${user.last_seen.year}';
       }
     }
-  }
-
-  void _clearError() {
-    _error.value = '';
   }
 }

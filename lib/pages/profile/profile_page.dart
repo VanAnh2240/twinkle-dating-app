@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
@@ -139,6 +138,15 @@ class _ProfilePageState extends State<ProfilePage> {
     return (DateTime.now().difference(_user!.date_of_birth!).inDays / 365).floor();
   }
 
+  // Helper method to get ImageProvider for any photo URL
+  ImageProvider _getImageProvider(String photoUrl) {
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+      return NetworkImage(photoUrl);
+    } else {
+      return FileImage(File(photoUrl));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -173,7 +181,7 @@ class _ProfilePageState extends State<ProfilePage> {
           IconButton(
             onPressed: () async {
               await Get.toNamed(AppRoutes.myProfile);
-              _loadData(); // Reload data after editing
+              _loadData();
             },
             icon: Icon(Icons.edit, color: AppTheme.primaryColor),
             tooltip: "Edit Profile",
@@ -228,21 +236,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 SizedBox(height: 24),
               ],
 
-              // Additional Photos
+              // Additional Photos - FIXED VERSION
               if (_profile != null && _profile!.photos.length > 1)
                 ..._profile!.photos.sublist(1).map((photo) => Padding(
                       padding: EdgeInsets.only(bottom: 16),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(
-                          photo,
-                          height: 300,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            height: 300,
-                            color: Colors.grey[800],
-                            child: Icon(Icons.broken_image, color: Colors.grey, size: 50),
+                      child: Container(
+                        height: 300,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          image: DecorationImage(
+                            image: _getImageProvider(photo),
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -278,10 +282,7 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         image: DecorationImage(
-          image: _profile!.photos[0].startsWith('http://') || 
-                _profile!.photos[0].startsWith('https://')
-              ? NetworkImage(_profile!.photos[0]) as ImageProvider
-              : FileImage(File(_profile!.photos[0])),
+          image: _getImageProvider(_profile!.photos[0]),
           fit: BoxFit.cover,
         ),
       ),
@@ -501,7 +502,6 @@ class _ProfilePageState extends State<ProfilePage> {
       'Star sign': '⭐',
     };
 
-    // Parse about_me list to map
     Map<String, String> aboutMeMap = {};
     for (var item in _profile!.about_me) {
       final parts = item.split(': ');
