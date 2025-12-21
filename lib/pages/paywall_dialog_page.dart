@@ -1,331 +1,253 @@
-// import 'package:flutter/material.dart';
-// import 'package:get/get.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
-// /// Paywall dialog that appears when user hits subscription limits
-// /// Shows upgrade options and benefits of paid plans
-// class PaywallDialogPage extends StatelessWidget {
-//   final String featureName;
-//   final String featureDescription;
+class PaywallDialog extends StatelessWidget {
+  final String title;
+  final String message;
+  final String feature;
+  final String? requiredPlan; // 'plus' hoặc 'premium'
+  
+  const PaywallDialog({
+    Key? key,
+    required this.title,
+    required this.message,
+    required this.feature,
+    this.requiredPlan,
+  }) : super(key: key);
 
-//   const PaywallDialogPage({
-//     Key? key,
-//     required this.featureName,
-//     required this.featureDescription,
-//   }) : super(key: key);
+  /// Show paywall dialog
+  static Future<void> show({
+    required String title,
+    required String message,
+    required String feature,
+    String? requiredPlan,
+  }) {
+    return Get.dialog(
+      PaywallDialog(
+        title: title,
+        message: message,
+        feature: feature,
+        requiredPlan: requiredPlan,
+      ),
+      barrierDismissible: true,
+    );
+  }
 
-//   /// Show paywall dialog
-//   static void show({
-//     required String featureName,
-//     required String featureDescription,
-//   }) {
-//     Get.dialog(
-//       PaywallDialogPage(
-//         featureName: featureName,
-//         featureDescription: featureDescription,
-//       ),
-//       barrierDismissible: true,
-//     );
-//   }
+  /// Quick method for "See who likes you" feature
+  static Future<void> showSeeWhoLikesYou() {
+    return show(
+      title: 'Premium Feature',
+      message: 'Upgrade to Plus or Premium to see who likes you',
+      feature: 'See who likes you',
+      requiredPlan: 'plus',
+    );
+  }
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Dialog(
-//       backgroundColor: Colors.transparent,
-//       child: Container(
-//         constraints: BoxConstraints(maxWidth: 400),
-//         decoration: BoxDecoration(
-//           color: Color(0xFF1E1E1E),
-//           borderRadius: BorderRadius.circular(24),
-//           boxShadow: [
-//             BoxShadow(
-//               color: Colors.black.withOpacity(0.5),
-//               blurRadius: 20,
-//               spreadRadius: 5,
-//             ),
-//           ],
-//         ),
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             // Close button
-//             Align(
-//               alignment: Alignment.topRight,
-//               child: IconButton(
-//                 icon: Icon(Icons.close, color: Colors.white70),
-//                 onPressed: () => Get.back(),
-//               ),
-//             ),
+  /// Quick method for unlimited swipes
+  static Future<void> showUnlimitedSwipes() {
+    return show(
+      title: 'Swipe Limit Reached',
+      message: 'Upgrade to Premium for unlimited swipes',
+      feature: 'Unlimited swipes',
+      requiredPlan: 'premium',
+    );
+  }
 
-//             // Lock icon
-//             Container(
-//               padding: EdgeInsets.all(20),
-//               decoration: BoxDecoration(
-//                 color: Color(0xFFFF6B9D).withOpacity(0.2),
-//                 shape: BoxShape.circle,
-//               ),
-//               child: Icon(
-//                 Icons.lock,
-//                 size: 48,
-//                 color: Color(0xFFFF6B9D),
-//               ),
-//             ),
+  /// Quick method for super likes
+  static Future<void> showSuperLikes() {
+    return show(
+      title: 'Super Like Feature',
+      message: 'Upgrade to Plus or Premium to send Super Likes',
+      feature: 'Super Likes',
+      requiredPlan: 'plus',
+    );
+  }
 
-//             SizedBox(height: 24),
+  /// Quick method for see blocked users
+  static Future<void> showSeeBlockedUsers() {
+    return show(
+      title: 'Premium Feature',
+      message: 'Only Premium members can see blocked and unblocked users',
+      feature: 'See blocked users',
+      requiredPlan: 'premium',
+    );
+  }
 
-//             // Title
-//             Text(
-//               'Upgrade to $featureName',
-//               style: TextStyle(
-//                 color: Colors.white,
-//                 fontSize: 24,
-//                 fontWeight: FontWeight.bold,
-//               ),
-//               textAlign: TextAlign.center,
-//             ),
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              _getPlanColor().withOpacity(0.05),
+              Colors.white,
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    _getPlanColor(),
+                    _getPlanColor().withOpacity(0.7),
+                  ],
+                ),
+              ),
+              child: const Icon(
+                Icons.lock_outline,
+                size: 40,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Title
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            
+            // Message
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            
+            // Feature badge
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: _getPlanColor().withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _getPlanColor().withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.star,
+                    size: 16,
+                    color: _getPlanColor(),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    feature,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: _getPlanColor(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Buttons
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Get.back();
+                      Get.toNamed('/subscription');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      backgroundColor: _getPlanColor(),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 2,
+                    ),
+                    child: const Text(
+                      'Upgrade now',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
 
-//             SizedBox(height: 12),
+                const SizedBox(height: 5),
 
-//             // Description
-//             Padding(
-//               padding: EdgeInsets.symmetric(horizontal: 32),
-//               child: Text(
-//                 featureDescription,
-//                 style: TextStyle(
-//                   color: Colors.white70,
-//                   fontSize: 14,
-//                   height: 1.5,
-//                 ),
-//                 textAlign: TextAlign.center,
-//               ),
-//             ),
+                TextButton(
+                  onPressed: () => Get.back(),
+                  child: const Text(
+                    'Maybe later',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-//             SizedBox(height: 32),
+  Color _getPlanColor() {
+    switch (requiredPlan) {
+      case 'plus':
+        return Colors.yellow; 
+      case 'premium':
+        return Colors.pinkAccent; 
+      default:
+        return Colors.blueAccent; 
+    }
+  }
+}
 
-//             // Plan options
-//             _buildPlanOption(
-//               title: 'Plus',
-//               price: '199,000 ₫/month',
-//               features: [
-//                 '50 swipes per day',
-//                 'See who likes you',
-//                 '5 Super Likes per month',
-//                 'See who super liked you',
-//                 'Priority support',
-//               ],
-//               color: Color(0xFF4CAF50),
-//               onTap: () {
-//                 Get.back();
-//                 Get.toNamed('/subscription', arguments: 'plus');
-//               },
-//             ),
-
-//             SizedBox(height: 16),
-
-//             _buildPlanOption(
-//               title: 'Premium',
-//               price: '399,000 ₫/month',
-//               features: [
-//                 'Unlimited swipes',
-//                 'See who likes you',
-//                 '10 Super Likes per month',
-//                 'See people blocked and unblocked',
-//                 'Priority support',
-//                 'Premium badge',
-//               ],
-//               color: Color(0xFFFF6B9D),
-//               isRecommended: true,
-//               onTap: () {
-//                 Get.back();
-//                 Get.toNamed('/subscription', arguments: 'premium');
-//               },
-//             ),
-
-//             SizedBox(height: 32),
-
-//             // Maybe later button
-//             TextButton(
-//               onPressed: () => Get.back(),
-//               child: Text(
-//                 'Maybe Later',
-//                 style: TextStyle(
-//                   color: Colors.white54,
-//                   fontSize: 14,
-//                 ),
-//               ),
-//             ),
-
-//             SizedBox(height: 16),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildPlanOption({
-//     required String title,
-//     required String price,
-//     required List<String> features,
-//     required Color color,
-//     required VoidCallback onTap,
-//     bool isRecommended = false,
-//   }) {
-//     return GestureDetector(
-//       onTap: onTap,
-//       child: Container(
-//         margin: EdgeInsets.symmetric(horizontal: 24),
-//         padding: EdgeInsets.all(20),
-//         decoration: BoxDecoration(
-//           color: Color(0xFF2A2A2A),
-//           borderRadius: BorderRadius.circular(16),
-//           border: isRecommended
-//               ? Border.all(color: color, width: 2)
-//               : null,
-//         ),
-//         child: Column(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             // Header with badge
-//             Row(
-//               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//               children: [
-//                 Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       title,
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 20,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                     SizedBox(height: 4),
-//                     Text(
-//                       price,
-//                       style: TextStyle(
-//                         color: color,
-//                         fontSize: 16,
-//                         fontWeight: FontWeight.w600,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//                 if (isRecommended)
-//                   Container(
-//                     padding: EdgeInsets.symmetric(
-//                       horizontal: 12,
-//                       vertical: 6,
-//                     ),
-//                     decoration: BoxDecoration(
-//                       color: color,
-//                       borderRadius: BorderRadius.circular(12),
-//                     ),
-//                     child: Text(
-//                       'RECOMMENDED',
-//                       style: TextStyle(
-//                         color: Colors.white,
-//                         fontSize: 10,
-//                         fontWeight: FontWeight.bold,
-//                       ),
-//                     ),
-//                   ),
-//               ],
-//             ),
-
-//             SizedBox(height: 16),
-
-//             // Features list
-//             ...features.map((feature) => Padding(
-//                   padding: EdgeInsets.only(bottom: 8),
-//                   child: Row(
-//                     children: [
-//                       Icon(
-//                         Icons.check_circle,
-//                         color: color,
-//                         size: 16,
-//                       ),
-//                       SizedBox(width: 8),
-//                       Expanded(
-//                         child: Text(
-//                           feature,
-//                           style: TextStyle(
-//                             color: Colors.white70,
-//                             fontSize: 13,
-//                           ),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 )),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// /// Helper function to show paywall for specific limits
-// class PaywallHelper {
-//   /// Show paywall when swipe limit is reached
-//   static void showSwipeLimitReached(int currentPlan) {
-//     PaywallDialog.show(
-//       featureName: 'Unlimited Swipes',
-//       featureDescription: 
-//           'You\'ve reached your daily swipe limit. Upgrade to Plus or Premium to keep swiping!',
-//     );
-//   }
-
-//   /// Show paywall when super like limit is reached
-//   static void showSuperLikeLimitReached() {
-//     PaywallDialog.show(
-//       featureName: 'More Super Likes',
-//       featureDescription: 
-//           'You\'ve used all your Super Likes this month. Upgrade to Premium for 10 Super Likes per month!',
-//     );
-//   }
-
-//   /// Show paywall for premium features
-//   static void showPremiumFeature(String featureName) {
-//     PaywallDialog.show(
-//       featureName: featureName,
-//       featureDescription: 
-//           'This feature is only available for Premium members. Upgrade now to unlock!',
-//     );
-//   }
-
-//   /// Show paywall for Plus features
-//   static void showPlusFeature(String featureName) {
-//     PaywallDialog.show(
-//       featureName: featureName,
-//       featureDescription: 
-//           'This feature is available for Plus and Premium members. Upgrade to unlock!',
-//     );
-//   }
-
-//   /// Show paywall for "See who liked you" feature
-//   static void showSeeWhoLikedYou() {
-//     PaywallDialog.show(
-//       featureName: 'See Who Likes You',
-//       featureDescription: 
-//           'Curious who\'s interested? Upgrade to Plus or Premium to see everyone who liked you!',
-//     );
-//   }
-
-//   /// Show paywall for "See who super liked you" feature
-//   static void showSeeWhoSuperLikedYou() {
-//     PaywallDialog.show(
-//       featureName: 'See Who Super Liked You',
-//       featureDescription: 
-//           'Someone is really interested! Upgrade to see who super liked you.',
-//     );
-//   }
-
-//   /// Show paywall for blocked people feature
-//   static void showBlockedPeopleFeature() {
-//     PaywallDialog.show(
-//       featureName: 'Manage Blocked People',
-//       featureDescription: 
-//           'View and manage your blocked list with Premium membership.',
-//     );
-//   }
-// }
+extension PaywallExtension on GetInterface {
+  Future<void> showPaywall({
+    required String title,
+    required String message,
+    required String feature,
+    String? requiredPlan,
+  }) {
+    return PaywallDialog.show(
+      title: title,
+      message: message,
+      feature: feature,
+      requiredPlan: requiredPlan,
+    );
+  }
+}

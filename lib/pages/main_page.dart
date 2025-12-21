@@ -4,8 +4,6 @@ import 'package:twinkle/controllers/main_controller.dart';
 import 'package:twinkle/pages/chatlist_page.dart';
 import 'package:twinkle/pages/home_page.dart';
 import 'package:twinkle/pages/match_page.dart';
-import 'package:twinkle/pages/profile/account_page.dart';
-import 'package:twinkle/pages/profile/my_profile_page.dart';
 import 'package:twinkle/pages/profile/profile_page.dart';
 import 'package:twinkle/pages/subscriptions_page.dart';
 import 'package:twinkle/themes/theme.dart';

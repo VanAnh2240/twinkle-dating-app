@@ -3,11 +3,13 @@ import 'package:get/get.dart';
 import 'package:twinkle/models/profile_model.dart';
 import 'package:twinkle/models/users_model.dart';
 import 'package:twinkle/services/firestore_service.dart';
+import 'package:twinkle/services/profile_service.dart';
 import 'package:twinkle/routes/app_routes.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
 
 class ProfileSetupController extends GetxController {
   final FirestoreService _firestoreService = FirestoreService();
+  final ProfileService _profileService = ProfileService();
 
   // Observable states
   final RxInt currentStep = 0.obs;
@@ -25,21 +27,21 @@ class ProfileSetupController extends GetxController {
   final RxString gender = ''.obs;
   final Rx<DateTime?> dateOfBirth = Rx<DateTime?>(null);
   
-  // Profile info
+  // Profile info - PHẢI ĐỒNG NHẤT VỚI ProfileModel
   final RxString bio = ''.obs;
   final RxList<String> photos = <String>[].obs;
   final RxString profilePicture = ''.obs;
   final RxString location = ''.obs;
   final RxList<String> interests = <String>[].obs;
-  final RxList<String> aboutMe = <String>[].obs;
+  final RxList<String> aboutMe = <String>[].obs; // Lưu dạng "label: value"
   final RxList<String> communities = <String>[].obs;
   final RxList<String> values = <String>[].obs;
   
-  // New fields
+  // New fields - temporary storage
   final RxString sexualOrientation = ''.obs;
   final RxBool showSexualOrientationOnProfile = false.obs;
-  final RxString interestedIn = ''.obs; // Who are you interested in
-  final RxList<String> lifestyle = <String>[].obs;
+  final RxString interestedIn = ''.obs; // Sẽ lưu vào communities
+  final RxList<String> lifestyle = <String>[].obs; // Sẽ lưu vào about_me
 
   // Steps configuration
   final List<SetupStep> steps = [
@@ -133,7 +135,7 @@ class ProfileSetupController extends GetxController {
     
     switch (step.id) {
       case 'rules':
-        return true; // Just need to press I agree
+        return true;
       case 'name':
         return firstName.value.isNotEmpty && lastName.value.isNotEmpty;
       case 'birthday':
@@ -196,7 +198,8 @@ class ProfileSetupController extends GetxController {
         profilePicture.value = userData.profile_picture;
       }
 
-      final profileData = await _firestoreService.getUserProfile(userId);
+      // Sử dụng ProfileService thay vì FirestoreService
+      final profileData = await _profileService.getProfile(userId);
       if (profileData != null) {
         profile.value = profileData;
         bio.value = profileData.bio;
@@ -206,12 +209,34 @@ class ProfileSetupController extends GetxController {
         aboutMe.value = profileData.about_me;
         communities.value = profileData.communities;
         values.value = profileData.values;
+        
+        // Parse interestedIn từ communities nếu có
+        if (communities.isNotEmpty) {
+          interestedIn.value = communities.first;
+        }
+        
+        // Parse lifestyle từ about_me nếu có
+        _parseLifestyleFromAboutMe();
       }
     } catch (e) {
       error.value = e.toString();
       Get.snackbar('Error', 'Failed to load user data');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  void _parseLifestyleFromAboutMe() {
+    // Parse các lifestyle items từ about_me list
+    for (var item in aboutMe) {
+      if (item.startsWith('Drinking: ') || 
+          item.startsWith('Smoking: ') || 
+          item.startsWith('Exercise: ')) {
+        final value = item.split(': ').last;
+        if (!lifestyle.contains(value)) {
+          lifestyle.add(value);
+        }
+      }
     }
   }
 
@@ -261,14 +286,16 @@ class ProfileSetupController extends GetxController {
       
       switch (step.id) {
         case 'name':
-          await _firestoreService.updateUserFields(userId, {
+          // Lưu vào Users collection
+          await _firestoreService.updateUserPartial(userId, {
             'first_name': firstName.value,
             'last_name': lastName.value,
           });
           break;
           
         case 'birthday':
-          await _firestoreService.updateUserFields(userId, {
+          // Lưu vào Users collection
+          await _firestoreService.updateUserPartial(userId, {
             'date_of_birth': dateOfBirth.value != null 
                 ? Timestamp.fromDate(dateOfBirth.value!)
                 : null,
@@ -276,71 +303,98 @@ class ProfileSetupController extends GetxController {
           break;
           
         case 'gender':
-          await _firestoreService.updateUserFields(userId, {
+          // Lưu vào Users collection
+          await _firestoreService.updateUserPartial(userId, {
             'gender': gender.value,
           });
-          break;
-          
-        case 'photos':
-          await _firestoreService.updateUserFields(userId, {
-            'profile_picture': profilePicture.value,
-          });
-          await updateOrCreateProfile({'photos': photos.toList()});
+          // Thêm gender vào about_me
+          _updateAboutMeField('Gender', gender.value);
+          await _profileService.setAboutMe(userId, aboutMe.toList());
           break;
           
         case 'location':
-          await updateOrCreateProfile({'location': location.value});
+          // Lưu vào Profile collection
+          await _profileService.updateLocation(userId, location.value);
           break;
           
-        case 'bio':
-          await updateOrCreateProfile({'bio': bio.value});
-          break;
-          
-        case 'interests_hobbies':
-          await updateOrCreateProfile({'interests': interests.toList()});
-          break;
-          
-        case 'about_me':
-          await updateOrCreateProfile({'about_me': aboutMe.toList()});
+        case 'sexual_orientation':
+          if (sexualOrientation.value.isNotEmpty) {
+            // Lưu vào about_me
+            _updateAboutMeField('Sexual Orientation', sexualOrientation.value);
+            await _profileService.setAboutMe(userId, aboutMe.toList());
+          }
           break;
           
         case 'interested_in':
-          await updateOrCreateProfile({'communities': [interestedIn.value]});
-          break;
-          
-        case 'values':
-          await updateOrCreateProfile({'values': values.toList()});
+          // Lưu vào communities (hoặc có thể tạo field riêng)
+          if (!communities.contains(interestedIn.value)) {
+            await _profileService.addCommunity(userId, interestedIn.value);
+            communities.add(interestedIn.value);
+          }
+          // Hoặc lưu vào about_me
+          _updateAboutMeField('Looking for', interestedIn.value);
+          await _profileService.setAboutMe(userId, aboutMe.toList());
           break;
           
         case 'lifestyle':
-          // Save lifestyle to about_me or create new field
+          // Lưu lifestyle vào about_me với format "label: value"
+          for (var item in lifestyle) {
+            // Xác định xem item thuộc category nào
+            if (item.contains('drink') || item.contains('alcohol')) {
+              _updateAboutMeField('Drinking', item);
+            } else if (item.contains('smoke') || item.contains('cigarette')) {
+              _updateAboutMeField('Smoking', item);
+            } else if (item.contains('exercise') || item.contains('gym')) {
+              _updateAboutMeField('Exercise', item);
+            }
+          }
+          await _profileService.setAboutMe(userId, aboutMe.toList());
+          break;
+          
+        case 'about_me':
+          // aboutMe đã được update trực tiếp, chỉ cần save
+          await _profileService.setAboutMe(userId, aboutMe.toList());
+          break;
+          
+        case 'interests_hobbies':
+          // Lưu vào Profile collection
+          await _profileService.setInterests(userId, interests.toList());
+          break;
+          
+        case 'values':
+          // Lưu vào Profile collection
+          await _profileService.setValues(userId, values.toList());
+          break;
+          
+        case 'bio':
+          // Lưu vào Profile collection
+          await _profileService.updateBio(userId, bio.value);
+          break;
+          
+        case 'photos':
+          // Lưu profile_picture vào Users collection
+          await _firestoreService.updateUserPartial(userId, {
+            'profile_picture': profilePicture.value,
+          });
+          // Lưu photos vào Profile collection
+          await _profileService.updatePhotos(userId, photos.toList());
           break;
       }
     } catch (e) {
       error.value = e.toString();
-      Get.snackbar('Error', 'Failed to save data');
+      Get.snackbar('Error', 'Failed to save data: $e');
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> updateOrCreateProfile(Map<String, dynamic> data) async {
-    final profileExists = await _firestoreService.profileExists(userId);
-    
-    if (profileExists) {
-      await _firestoreService.updateProfileFields(userId, data);
-    } else {
-      final newProfile = ProfileModel(
-        user_id: userId,
-        bio: data['bio'] ?? '',
-        photos: data['photos'] ?? [],
-        location: data['location'] ?? '',
-        interests: data['interests'] ?? [],
-        about_me: data['about_me'] ?? [],
-        communities: data['communities'] ?? [],
-        values: data['values'] ?? [],
-      );
-      await _firestoreService.createProfile(userId, newProfile);
+  /// Helper method để update about_me field theo format "label: value"
+  void _updateAboutMeField(String label, String value) {
+    // Remove old entry with same label
+    aboutMe.removeWhere((item) => item.startsWith('$label: '));
+    // Add new entry
+    if (value.isNotEmpty) {
+      aboutMe.add('$label: $value');
     }
   }
 
@@ -357,8 +411,26 @@ class ProfileSetupController extends GetxController {
     try {
       isLoading.value = true;
       
-      // Final save
-      await saveCurrentStep();
+      // Final save - Tạo/Update toàn bộ profile
+      final completeProfile = ProfileModel(
+        user_id: userId,
+        bio: bio.value.trim(),
+        location: location.value.trim(),
+        about_me: aboutMe.toList(),
+        interests: interests.toList(),
+        communities: communities.toList(),
+        values: values.toList(),
+        photos: photos.toList(),
+      );
+      
+      // Sử dụng ProfileService để lưu
+      final profileExists = await _profileService.profileExists(userId);
+      
+      if (profileExists) {
+        await _profileService.updateProfile(completeProfile);
+      } else {
+        await _profileService.createProfile(completeProfile);
+      }
       
       // Navigate to main page
       Get.offAllNamed(AppRoutes.main);
@@ -370,7 +442,7 @@ class ProfileSetupController extends GetxController {
       );
     } catch (e) {
       error.value = e.toString();
-      Get.snackbar('Error', 'Failed to complete setup');
+      Get.snackbar('Error', 'Failed to complete setup: $e');
     } finally {
       isLoading.value = false;
     }
@@ -387,7 +459,6 @@ class ProfileSetupController extends GetxController {
     if (!photos.contains(photoUrl)) {
       photos.add(photoUrl);
     }
-    // If no profile picture set, use first photo
     if (profilePicture.value.isEmpty && photos.isNotEmpty) {
       profilePicture.value = photos.first;
     }
@@ -410,11 +481,13 @@ class ProfileSetupController extends GetxController {
     }
   }
 
-  void toggleAboutMe(String item) {
-    if (aboutMe.contains(item)) {
-      aboutMe.remove(item);
+  void toggleAboutMeMultiple(String label, String value) {
+    final entry = '$label: $value';
+    
+    if (aboutMe.contains(entry)) {
+      aboutMe.remove(entry);
     } else {
-      aboutMe.add(item);
+      aboutMe.add(entry);
     }
   }
 

@@ -1,4 +1,5 @@
 // ==================== PHOTOS STEP ====================
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
@@ -78,7 +79,7 @@ class PhotosStep extends StatelessWidget {
 
                 const SizedBox(height: 32),
 
-                /// GRID PHOTOS (FIX GETX)
+                /// GRID PHOTOS (FIXED)
                 Obx(() {
                   final photos = controller.photos;
                   final profilePic = controller.profilePicture.value;
@@ -96,8 +97,8 @@ class PhotosStep extends StatelessWidget {
                     itemCount: 6,
                     itemBuilder: (context, index) {
                       final hasPhoto = index < photos.length;
-                      final photoUrl = hasPhoto ? photos[index] : '';
-                      final isProfilePic = photoUrl == profilePic;
+                      final photoPath = hasPhoto ? photos[index] : '';
+                      final isProfilePic = photoPath == profilePic;
 
                       return GestureDetector(
                         onTap: () =>
@@ -114,15 +115,27 @@ class PhotosStep extends StatelessWidget {
                                       : Colors.white24,
                                   width: isProfilePic ? 3 : 1.5,
                                 ),
-                                image: hasPhoto
-                                    ? DecorationImage(
-                                        image: NetworkImage(photoUrl),
-                                        fit: BoxFit.cover,
-                                      )
-                                    : null,
                               ),
                               child: hasPhoto
-                                  ? null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: Image.file(
+                                        File(photoPath),
+                                        fit: BoxFit.cover,
+                                        width: double.infinity,
+                                        height: double.infinity,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          // Fallback if file doesn't exist
+                                          return const Center(
+                                            child: Icon(
+                                              Icons.broken_image,
+                                              color: Colors.white38,
+                                              size: 40,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    )
                                   : const Center(
                                       child: Icon(
                                         Icons.add_photo_alternate,
@@ -139,7 +152,7 @@ class PhotosStep extends StatelessWidget {
                                 right: 6,
                                 child: GestureDetector(
                                   onTap: () =>
-                                      controller.removePhoto(photoUrl),
+                                      controller.removePhoto(photoPath),
                                   child: const CircleAvatar(
                                     radius: 10,
                                     backgroundColor: Colors.black87,
@@ -227,7 +240,7 @@ class PhotosStep extends StatelessWidget {
           ),
         ),
 
-        /// DONE BUTTON (FIX GETX)
+        /// DONE BUTTON
         Padding(
           padding: const EdgeInsets.all(24),
           child: Obx(() {
@@ -238,7 +251,7 @@ class PhotosStep extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed:
-                    canProceed ? controller.completeSetup : null,
+                    canProceed && !loading ? controller.completeSetup : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: canProceed
                       ? AppTheme.quaternaryColor

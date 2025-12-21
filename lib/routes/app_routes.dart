@@ -18,6 +18,9 @@ class AppRoutes {
   //profile
   static const String profile = '/profile';
   static const String myProfile = '/my-profile';
+  static const String otherProfileDetail = '/other-profile-detail';
+
+
 
   //settings
   static const String settings = '/settings';
@@ -29,6 +32,7 @@ class AppRoutes {
   static const String privacySecurity = '/privacy-security';
   static const String about = '/about';
   static const String contact = '/contact';
+  static const String blockList = '/blockList';
   
 
 
@@ -39,4 +43,7 @@ class AppRoutes {
 
   //notifications
   static const String notification = '/notification';
+
+  //subscriptions
+  static const String subscription =  '/subscription';
 }

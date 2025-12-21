@@ -16,7 +16,6 @@ class _NameSettingPageState extends State<NameSettingPage> {
   final FirestoreService _firestoreService = Get.put(FirestoreService());
   
   final TextEditingController _firstNameController = TextEditingController();
-  final TextEditingController _middleNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   bool _isLoading = false;
   bool _isLoadingData = true;
@@ -33,7 +32,6 @@ class _NameSettingPageState extends State<NameSettingPage> {
     if (user != null) {
       setState(() {
         _firstNameController.text = user.first_name ?? '';
-        _middleNameController.text = '';
         _lastNameController.text = user.last_name ?? '';
         _isLoadingData = false;
       });
@@ -47,7 +45,6 @@ class _NameSettingPageState extends State<NameSettingPage> {
   @override
   void dispose() {
     _firstNameController.dispose();
-    _middleNameController.dispose();
     _lastNameController.dispose();
     super.dispose();
   }
@@ -55,7 +52,6 @@ class _NameSettingPageState extends State<NameSettingPage> {
   String get _fullName {
     final parts = [
       _lastNameController.text.trim(),
-      _middleNameController.text.trim(),
       _firstNameController.text.trim(),
     ].where((part) => part.isNotEmpty).toList();
     return parts.join(' ');
@@ -241,12 +237,6 @@ class _NameSettingPageState extends State<NameSettingPage> {
             _buildInputField(
               label: "First Name",
               controller: _firstNameController,
-            ),
-            SizedBox(height: 16),
-            // Middle Name
-            _buildInputField(
-              label: "Middle Name",
-              controller: _middleNameController,
             ),
             SizedBox(height: 16),
             // Last Name

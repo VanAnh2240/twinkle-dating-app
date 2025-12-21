@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:twinkle/themes/theme.dart';
 import 'package:twinkle/routes/app_routes.dart';
 
 class PrivacySecurityPage extends StatelessWidget {

@@ -412,4 +412,44 @@ class SubscriptionService {
     if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
     return DateTime.now();
   }
+
+  /// Check if user has Plus plan
+  Future<bool> isUserPlus(String userId) async {
+    final planId = await getUserCurrentPlanId(userId);
+    return planId == 'plus';
+  }
+
+  /// Check if user has Premium plan
+  Future<bool> isUserPremium(String userId) async {
+    final planId = await getUserCurrentPlanId(userId);
+    return planId == 'premium';
+  }
+
+  /// Check if user has any paid plan (Plus or Premium)
+  Future<bool> isUserPaid(String userId) async {
+    final planId = await getUserCurrentPlanId(userId);
+    return planId == 'plus' || planId == 'premium';
+  }
+
+  /// Check if user has Free plan
+  Future<bool> isUserFree(String userId) async {
+    final planId = await getUserCurrentPlanId(userId);
+    return planId == 'free';
+  }
+
+  /// Get comprehensive user subscription info
+  Future<Map<String, dynamic>> getUserSubscriptionInfo(String userId) async {
+    final activeSubscription = await getUserActiveSubscription(userId);
+    final planId = activeSubscription?['plan_id'] ?? 'free';
+    
+    return {
+      'plan_id': planId,
+      'is_free': planId == 'free',
+      'is_plus': planId == 'plus',
+      'is_premium': planId == 'premium',
+      'is_paid': planId == 'plus' || planId == 'premium',
+      'expires_on': activeSubscription?['expires_on'],
+      'subscribed_on': activeSubscription?['subscribed_on'],
+    };
+  }
 }

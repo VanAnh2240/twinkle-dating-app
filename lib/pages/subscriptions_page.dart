@@ -124,7 +124,7 @@ class SubscriptionPage extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color.fromARGB(255, 188, 44, 216), Color(0xFFEC4899)],
+              colors: [Color.fromARGB(255, 44, 53, 216), Color(0xFFEC4899)],
             ),
             isCurrentPlan: subscriptionController.currentPlanId.value == 'premium',
             selectedPlanId: selectedPlanId,
@@ -320,7 +320,7 @@ class SubscriptionPage extends StatelessWidget {
           features = [
             'Unlimited swipes',
             'See who likes you',
-            '10 Super Likes per month',
+            '10 Super Likes per day',
             'See people blocked'
             'Unblocked',
             'Priority support',
@@ -334,7 +334,7 @@ class SubscriptionPage extends StatelessWidget {
           features = [
             '50 swipes per day',
             'See who likes you',
-            '5 Super Likes per month',
+            '5 Super Likes per day',
             'See who super liked you',
             'Priority support',
           ];
@@ -793,8 +793,8 @@ class SubscriptionPage extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFF7C3AED),
-            Color(0xFFEC4899),
+            Color.fromARGB(255, 79, 58, 237),
+            Color.fromARGB(255, 209, 72, 236),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
@@ -1421,7 +1421,7 @@ class SubscriptionPage extends StatelessWidget {
                       
                       // Success text
                       const Text(
-                        '🎉 Congratulations! 🎉',
+                        'Congratulations!',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white,

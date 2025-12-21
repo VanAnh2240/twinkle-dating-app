@@ -68,7 +68,7 @@ class AccountPage extends StatelessWidget {
                         : null,
                   ),
                 ),
-                SizedBox(height: 16),
+                SizedBox(height: 30),
                 // Name
                 Text(
                   "${user.first_name ?? ''} ${user.last_name ?? ''}",
@@ -78,7 +78,7 @@ class AccountPage extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 24),
+                SizedBox(height:30),
                 // Account Details
                 _buildAccountField(
                   label: "Name",
@@ -87,7 +87,7 @@ class AccountPage extends StatelessWidget {
                     Get.toNamed(AppRoutes.nameSetting);
                   },
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: 20),
                 _buildAccountField(
                   label: "Birthday",
                   value: user.date_of_birth != null
@@ -97,7 +97,7 @@ class AccountPage extends StatelessWidget {
                     Get.toNamed(AppRoutes.birthdaySetting);
                   },
                 ),
-                SizedBox(height: 12),
+                SizedBox(height: 20),
                 _buildAccountField(
                   label: "Email",
                   value: user.email ?? "Not set",
@@ -105,20 +105,12 @@ class AccountPage extends StatelessWidget {
                     Get.toNamed(AppRoutes.emailSetting);
                   },
                 ),
-                SizedBox(height: 12),
-                _buildAccountField(
-                  label: "Phone Number",
-                  value: "09* **** *99", // Placeholder - phone number not in model
-                  onTap: () {
-                    // TODO: Navigate to edit phone page
-                  },
-                ),
-                SizedBox(height: 32),
+                SizedBox(height: 30),
                 // Log Out Button
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.orange, width: 1.5),
+                    color: Colors.redAccent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: TextButton(

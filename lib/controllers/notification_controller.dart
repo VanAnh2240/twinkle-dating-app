@@ -82,7 +82,7 @@ class NotificationController extends GetxController {
 
   void handleNotificationTap(NotificationsModel notification) {
     markAsRead(notification);
-    Get.toNamed(AppRoutes.chatList);
+    Get.back();
   }
 
   String getNotificationTimeText(DateTime createAt) {

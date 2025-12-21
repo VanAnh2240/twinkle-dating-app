@@ -296,13 +296,44 @@ class FirestoreService {
     }
   }
 
+  //Block
   Future<void> blockUser(String blockerID, String blockedID) async {
     try{
       await createBlockedUser (blockerID, blockedID);
-      unMatch(blockerID, blockedID);
+      final match = await getMatches(blockerID, blockedID);
+      if (match != null) {
+        await unMatch(blockerID, blockedID);
+      }
     }
     catch(e) {
-      throw Exception("Failed to unmatch: $e");
+      throw Exception("Failed to block: $e");
+    }
+  }
+
+  //Check block
+  Future<bool> isBlockRelationshipExists(String userId, String otherUserId) async {
+    try {
+      // Check if userId blocked otherUserId
+      final query1 = await _firestore
+          .collection('BlockedUsers')
+          .where('user_id', isEqualTo: userId)
+          .where('blocked_user_id', isEqualTo: otherUserId)
+          .limit(1)
+          .get();
+
+      if (query1.docs.isNotEmpty) return true;
+
+      // Check if otherUserId blocked userId
+      final query2 = await _firestore
+          .collection('BlockedUsers')
+          .where('user_id', isEqualTo: otherUserId)
+          .where('blocked_user_id', isEqualTo: userId)
+          .limit(1)
+          .get();
+
+      return query2.docs.isNotEmpty;
+    } catch (e) {
+      throw Exception("Failed to check block relationship: $e");
     }
   }
 
@@ -849,6 +880,38 @@ class FirestoreService {
     }
   }
 
-  Future<void> createProfile(String userId, ProfileModel newProfile) async {}
+  Future<int> getDailySwipeCount(String userId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('daily_stats')
+          .doc(DateTime.now().toString().substring(0, 10)) 
+          .get();
+      
+      if (doc.exists) {
+        return doc.data()?['swipe_count'] ?? 0;
+      }
+      return 0;
+    } catch (e) {
+      print('Error getting swipe count: $e');
+      return 0;
+    }
+  }
 
+  Future<void> updateDailySwipeCount(String userId, int count) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('daily_stats')
+          .doc(DateTime.now().toString().substring(0, 10))
+          .set({
+        'swipe_count': count,
+        'date': DateTime.now(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error updating swipe count: $e');
+    }
+  }
 }

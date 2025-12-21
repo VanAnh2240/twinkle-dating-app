@@ -19,7 +19,7 @@ class MainController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    Get.lazyPut(() => HomeController());
+    //Get.lazyPut(() => HomeController());
     Get.lazyPut(() => MatchController());
     Get.lazyPut(() => ChatListController());
     Get.lazyPut(() => ChatController());

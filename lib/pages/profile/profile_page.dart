@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:twinkle/controllers/auth_controller.dart';
@@ -276,7 +278,10 @@ class _ProfilePageState extends State<ProfilePage> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         image: DecorationImage(
-          image: NetworkImage(_profile!.photos[0]),
+          image: _profile!.photos[0].startsWith('http://') || 
+                _profile!.photos[0].startsWith('https://')
+              ? NetworkImage(_profile!.photos[0]) as ImageProvider
+              : FileImage(File(_profile!.photos[0])),
           fit: BoxFit.cover,
         ),
       ),
@@ -543,6 +548,6 @@ class _ProfilePageState extends State<ProfilePage> {
         }
       }
     }
-    return '✨ a long-term relationship';
+    return 'Nothing to show';
   }
 }
