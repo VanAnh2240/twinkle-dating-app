@@ -67,7 +67,6 @@ class ChatListController extends GetxController{
   void _loadUsers() {
     _users.bindStream(
       firestoreService.getAllUsersStream().map((userList) {
-        print("🔵 ChatListController: Users loaded - count: ${userList.length}");
         Map<String, UsersModel> userMap = {};
         for(var user in userList) {
           userMap[user.user_id] = user;
@@ -210,7 +209,6 @@ class ChatListController extends GetxController{
       return displayNameMatch || emailMatch || lastMessageMatch;
     }).toList();
 
-    print("🔵 _performSearch: Found ${_filteredChats.length} results");
     _sortSearchResults(lowercaseQuery);
   }
 

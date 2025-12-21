@@ -154,8 +154,6 @@ class BlockListPage extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _buildAvatar(user),
-          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,50 +224,6 @@ class BlockListPage extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar(Map<String, dynamic> user) {
-    String profilePicture = user['profile_picture'] ?? '';
-    String firstName = user['first_name'] ?? '';
-    String lastName = user['last_name'] ?? '';
-    String initial = firstName.isNotEmpty 
-        ? firstName[0].toUpperCase() 
-        : (lastName.isNotEmpty ? lastName[0].toUpperCase() : 'U');
-
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: profilePicture.isEmpty
-            ? LinearGradient(
-                colors: [
-                  AppTheme.primaryColor.withOpacity(0.7),
-                  AppTheme.tertiaryColor.withOpacity(0.7),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-            : null,
-        image: profilePicture.isNotEmpty
-            ? DecorationImage(
-                image: NetworkImage(profilePicture),
-                fit: BoxFit.cover,
-              )
-            : null,
-      ),
-      child: profilePicture.isEmpty
-          ? Center(
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            )
-          : null,
-    );
-  }
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -302,8 +256,6 @@ class BlockListPage extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildAvatar(user),
-              const SizedBox(height: 20),
               Text(
                 'Unblock ${user['full_name'] ?? 'this user'}?',
                 style: const TextStyle(

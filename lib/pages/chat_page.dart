@@ -30,7 +30,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
 
     controller = Get.find<ChatController>(tag: chatID);
-    
   }
   
   @override
@@ -66,13 +65,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
         backgroundColor: Color.fromARGB(255, 119, 102, 147).withOpacity(0.65),
         elevation: 0,
         leading: IconButton(
-        onPressed: () async {
-          Get.back();  
-          await Future.delayed(Duration(milliseconds: 100));
-          Get.delete<ChatController>(tag: chatID, force: true);
-        }, 
-        icon: Icon(Icons.arrow_back, color: Colors.white)
-      ),
+          onPressed: () async {
+            Get.back();  
+            await Future.delayed(Duration(milliseconds: 100));
+            Get.delete<ChatController>(tag: chatID, force: true);
+          }, 
+          icon: Icon(Icons.arrow_back, color: Colors.white)
+        ),
         title: Obx(() {
           final otherUser = controller.otherUser;
           if (otherUser == null) {
@@ -89,7 +88,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Display name
                     Text(
                       '${otherUser.first_name} ${otherUser.last_name}',
                       style: TextStyle(
@@ -99,7 +97,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    // Status
                     Text(
                       otherUser.is_online ? "Active now" : "Offline",
                       style: TextStyle(
@@ -117,7 +114,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
           );
         }),
         actions: [
-          // Game icon
           IconButton(
             onPressed: () {},
             icon: Container(
@@ -129,7 +125,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: Icon(Icons.videogame_asset, color: Colors.white, size: 25),
             ),
           ),
-          // Call icon
           IconButton(
             onPressed: () {},
             icon: Container(
@@ -141,8 +136,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               child: Icon(Icons.call, color: Colors.white, size: 25),
             ),
           ),
-          
-          // More options
           IconButton(
             icon: Container(
               padding: EdgeInsets.all(8),
@@ -318,17 +311,13 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
                           textCapitalization: TextCapitalization.sentences,
                           onSubmitted: (_) => ctrl.sendMessage(),
                         );
-                      
                       },
                     ),
                   ),
                 ],
               ),
             ),
-
             const SizedBox(width: 8),
-
-            // Send button
             Obx(
               () => AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
@@ -391,7 +380,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
             SizedBox(height: 24),
             
-            // Block 
             _buildOptionButton(
               text: 'Block this person',
               onTap: () {
@@ -401,7 +389,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
             SizedBox(height: 12),
              
-            // Unmatch
             _buildOptionButton(
               text: 'Unmatch',
               onTap: () {
@@ -411,10 +398,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
             ),
             SizedBox(height: 12),
             
-            // Delete chat
             _buildOptionButton(
               text: 'Delete chat',
-              onTap: () async{
+              onTap: () async {
                 Get.back();
                 final currentUserID = Get.find<AuthController>().user?.uid ?? '';
                 final otherUserID = controller.otherUser?.user_id ?? '';
@@ -489,15 +475,58 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               ),
               SizedBox(height: 24),
               
-              // Block button
               InkWell(
-                onTap: () {
-                  Get.back();
+                onTap: () async {
+                  Get.back(); // Đóng dialog
+                  
+                  final currentUserID = Get.find<AuthController>().user?.uid;
                   final otherUser = controller.otherUser;
-                  if (otherUser != null) {
-                    // TODO: Implement blockMatch function
-                    // controller.blockMatch(otherUser);
-                    Get.snackbar("Info", "Block function not implemented yet");
+                  
+                  if (currentUserID == null || otherUser == null) {
+                    Get.snackbar(
+                      "Error", 
+                      "Cannot block user",
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
+                    return;
+                  }
+
+                  try {
+                    // Show loading
+                    Get.dialog(
+                      Center(child: CircularProgressIndicator()),
+                      barrierDismissible: false,
+                    );
+
+                    // Block user trong Firestore
+                    await controller.blockUser(currentUserID, otherUser.user_id);
+
+                    // Close loading
+                    Get.back();
+                    
+                    // Close chat page và quay về trang trước
+                    Get.back();
+                    Get.delete<ChatController>(tag: chatID, force: true);
+                    
+                    Get.snackbar(
+                      "Success", 
+                      "User blocked successfully",
+                      backgroundColor: Colors.green,
+                      colorText: Colors.white,
+                    );
+                  } catch (e) {
+                    // Close loading nếu có lỗi
+                    if (Get.isDialogOpen ?? false) {
+                      Get.back();
+                    }
+                    
+                    Get.snackbar(
+                      "Error", 
+                      "Failed to block user: ${e.toString()}",
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
                   }
                 },
                 borderRadius: BorderRadius.circular(30),
@@ -521,7 +550,6 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               ),
               SizedBox(height: 12),
               
-              // Cancel button
               InkWell(
                 onTap: () => Get.back(),
                 borderRadius: BorderRadius.circular(30),
@@ -580,13 +608,51 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
               SizedBox(height: 24),
               
               InkWell(
-                onTap: () {
+                onTap: () async {
                   Get.back();
+                  
+                  final currentUserID = Get.find<AuthController>().user?.uid;
                   final otherUser = controller.otherUser;
-                  if (otherUser != null) {
-                    // TODO: Implement unMatch function
-                    // controller.unMatch(otherUser);
-                    Get.snackbar("Info", "Unmatch function not implemented yet");
+                  
+                  if (currentUserID == null || otherUser == null) {
+                    Get.snackbar(
+                      "Error", 
+                      "Cannot unmatch user",
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
+                    return;
+                  }
+
+                  try {
+                    Get.dialog(
+                      Center(child: CircularProgressIndicator()),
+                      barrierDismissible: false,
+                    );
+
+                    await controller.unmatchUser(currentUserID, otherUser.user_id);
+
+                    Get.back(); // Close loading
+                    Get.back(); // Close chat page
+                    Get.delete<ChatController>(tag: chatID, force: true);
+                    
+                    Get.snackbar(
+                      "Success", 
+                      "Unmatched successfully",
+                      backgroundColor: Colors.green,
+                      colorText: Colors.white,
+                    );
+                  } catch (e) {
+                    if (Get.isDialogOpen ?? false) {
+                      Get.back();
+                    }
+                    
+                    Get.snackbar(
+                      "Error", 
+                      "Failed to unmatch: ${e.toString()}",
+                      backgroundColor: Colors.red,
+                      colorText: Colors.white,
+                    );
                   }
                 },
                 borderRadius: BorderRadius.circular(30),

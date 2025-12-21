@@ -271,6 +271,22 @@ class ChatController extends GetxController {
     }
   }
 
+  Future<void> blockUser(String currentUserID, String otherUserID) async {
+    try {
+      await _firestoreService.blockUser(currentUserID, otherUserID);
+    } catch (e) {
+      throw Exception("Failed to block user: $e");
+    }
+  }
+
+  Future<void> unmatchUser(String currentUserID, String otherUserID) async {
+    try {
+      await _firestoreService.unMatch(currentUserID, otherUserID);
+    } catch (e) {
+      throw Exception("Failed to unmatch user: $e");
+    }
+  }
+
   void clearError() {
     _error.value = '';
   }
