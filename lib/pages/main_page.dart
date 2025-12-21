@@ -52,7 +52,7 @@ class MainPage extends StatelessWidget {
                   _navItem(Icons.favorite, 1),
                   _navItem(Icons.mail_rounded, 2, badge: controller.getUnreadCount()),
                   _navItem(Icons.person, 3),
-                  _navItem(Icons.money, 4),
+                  _navItem(Icons.workspace_premium, 4),
                 ],
               ),
             ),

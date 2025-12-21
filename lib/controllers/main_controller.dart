@@ -52,9 +52,6 @@ class MainController extends GetxController {
 
   int getUnreadCount() {
     try {
-      // Nếu muốn lấy từ HomeController, dùng:
-      // final homeController = Get.find<HomeController>();
-      // return homeController.getTotalUnreadCount();
       return 3;
     } catch (e) {
       return 0;
