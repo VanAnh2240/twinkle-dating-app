@@ -42,7 +42,6 @@ class _ChatListPageState extends State<ChatListPage> {
     return Scaffold(
       appBar: _buildAppBar(context, authController),
       body: Obx(() {
-        // ✅ FIX: Check allChats thay vì filtered chats
         final hasAnyChats = controller.allChats.isNotEmpty;
         final isSearching = controller.isSearching && controller.searchQuery.isNotEmpty;
         final chatList = isSearching ? controller.filteredChats : controller.chats;
@@ -89,7 +88,7 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // ✅ NEW: Handle both search no results and filter no results
+  //Handle both search no results and filter no results
   Widget _buildNoResultsOrEmpty(bool isSearching) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -103,7 +102,7 @@ class _ChatListPageState extends State<ChatListPage> {
     );
   }
 
-  // ✅ NEW: Show when filter returns no results
+  // Show when filter returns no results
   Widget _buildNoFilterResults() {
     return Center(
       child: Padding(

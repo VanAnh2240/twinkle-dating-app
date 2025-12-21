@@ -28,10 +28,10 @@ class ZaloPayService {
 
   /// Tạo order và nhận zp_trans_token
   Future<Map<String, dynamic>> createOrder({
-    required String planId,
-    required String planName,
+    required String plan_id,
+    required String plan_name,
     required int amount,
-    required String userId,
+    required String user_id,
   }) async {
     try {
       final appTransId = _generateAppTransId();
@@ -45,15 +45,15 @@ class ZaloPayService {
       // Prepare item data
       final item = [
         {
-          'itemid': planId,
-          'itemname': planName,
+          'itemid': plan_id,
+          'itemname': plan_name,
           'itemprice': amount,
           'itemquantity': 1,
         }
       ];
 
       // Create MAC data string theo thứ tự trong docs
-      final macData = '${ZaloPayConfig.appId}|$appTransId|$userId|$amount|$appTime|${jsonEncode(embedData)}|${jsonEncode(item)}';
+      final macData = '${ZaloPayConfig.appId}|$appTransId|$user_id|$amount|$appTime|${jsonEncode(embedData)}|${jsonEncode(item)}';
       
       // Generate MAC
       final mac = _generateHmacSHA256(macData, ZaloPayConfig.key1);
@@ -61,12 +61,12 @@ class ZaloPayService {
       // Prepare request body
       final requestBody = {
         'app_id': ZaloPayConfig.appId,
-        'app_user': userId,
+        'app_user': user_id,
         'app_trans_id': appTransId,
         'app_time': appTime.toString(),
         'amount': amount.toString(),
         'item': jsonEncode(item),
-        'description': 'Thanh toán $planName - Twinkle Dating',
+        'description': 'Thanh toán $plan_name - Twinkle Dating',
         'embed_data': jsonEncode(embedData),
         'bank_code': 'zalopayapp',
         'mac': mac,
@@ -85,12 +85,12 @@ class ZaloPayService {
         body: requestBody,
       );
 
-      print('📥 Response status: ${response.statusCode}');
+      print('Response status: ${response.statusCode}');
       
       if (response.statusCode != 200) {
         return {
           'success': false,
-          'message': 'Lỗi kết nối server (${response.statusCode})',
+          'message': 'Cannot connect to ZaloPay (${response.statusCode})',
         };
       }
 
@@ -107,12 +107,12 @@ class ZaloPayService {
       } else {
         return {
           'success': false,
-          'message': result['return_message'] ?? 'Tạo đơn hàng thất bại',
+          'message': result['return_message'] ?? 'Cannot create order',
           'returnCode': result['return_code'],
         };
       }
     } catch (e) {
-      print('❌ Error creating order: $e');
+      print('Error creating order: $e');
       return {
         'success': false,
         'message': 'Lỗi: $e',
@@ -125,7 +125,7 @@ class ZaloPayService {
     try {
       final Uri uri = Uri.parse(orderUrl);
       
-      print('🚀 Launching ZaloPay...');
+      print('Launching ZaloPay...');
       print('URL: $orderUrl');
       
       // Kiểm tra có thể mở không
@@ -146,7 +146,7 @@ class ZaloPayService {
       );
       
       if (launched) {
-        print('✅ ZaloPay opened successfully');
+        print('ZaloPay opened successfully');
         return {
           'success': true,
           'message': 'Đã mở ZaloPay',
@@ -158,7 +158,7 @@ class ZaloPayService {
         };
       }
     } catch (e) {
-      print('❌ Error launching ZaloPay: $e');
+      print('Error launching ZaloPay: $e');
       return {
         'success': false,
         'message': 'Lỗi: $e',
@@ -169,7 +169,7 @@ class ZaloPayService {
   /// Query trạng thái giao dịch
   Future<Map<String, dynamic>> queryOrderStatus(String appTransId) async {
     try {
-      print('🔍 Querying order status...');
+      print('Querying order status...');
       print('App Trans ID: $appTransId');
       
       // Create MAC for query
@@ -206,7 +206,7 @@ class ZaloPayService {
       // 3: Giao dịch đang xử lý
       
       if (result['return_code'] == 1) {
-        print('✅ Payment successful');
+        print('Payment successful');
         return {
           'success': true,
           'isPaid': true,
@@ -215,14 +215,14 @@ class ZaloPayService {
           'serverTime': result['server_time'],
         };
       } else if (result['return_code'] == 2) {
-        print('❌ Payment failed');
+        print('Payment failed');
         return {
           'success': true,
           'isPaid': false,
           'message': 'Giao dịch thất bại hoặc chưa thanh toán',
         };
       } else if (result['return_code'] == 3) {
-        print('⏳ Payment processing');
+        print('Payment processing');
         return {
           'success': true,
           'isPaid': false,
@@ -236,7 +236,7 @@ class ZaloPayService {
         };
       }
     } catch (e) {
-      print('❌ Error querying order: $e');
+      print('Error querying order: $e');
       return {
         'success': false,
         'message': 'Lỗi: $e',

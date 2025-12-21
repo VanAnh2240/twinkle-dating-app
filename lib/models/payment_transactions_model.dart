@@ -5,12 +5,16 @@ class PaymentTransactionsModel {
   final String user_id;
   final double amount;
   final DateTime transaction_date;
+  final String payment_method; // vnpay | zalopay
+  final String status; // 'pending', 'success', 'failed', 'cancelled'
 
   PaymentTransactionsModel({
     required this.transaction_id,
     required this.user_id,
     required this.amount,
     required this.transaction_date,
+    required this.payment_method,
+    required this.status,
   });
 
   static DateTime _parseDateTime(dynamic value) {
@@ -53,6 +57,8 @@ class PaymentTransactionsModel {
       'user_id': user_id,
       'amount': amount,
       'transaction_date': transaction_date.millisecondsSinceEpoch,
+      'payment_method': payment_method,
+      'status': status,
     };
   }
 
@@ -63,6 +69,8 @@ class PaymentTransactionsModel {
       user_id: map['user_id'] ?? '',
       amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
       transaction_date: _parseDateTime(map['transaction_date']),
+      payment_method: map['payment_method'] ?? '',
+      status: map['status'] ?? 'pending',
     );
   }
 
@@ -70,13 +78,17 @@ class PaymentTransactionsModel {
     String? transaction_id,
     String? user_id,
     double? amount,
-    DateTime? transaction_date,
+    DateTime? transaction_date, 
+    String? payment_method,
+    String? status,
   }) {
     return PaymentTransactionsModel(
       transaction_id: transaction_id ?? this.transaction_id,
       user_id: user_id ?? this.user_id,
       amount: amount ?? this.amount,
       transaction_date: transaction_date ?? this.transaction_date,
+      payment_method: payment_method ?? this.payment_method,
+      status: status ?? this.status,
     );
   }
 }

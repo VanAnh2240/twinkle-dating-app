@@ -13,11 +13,6 @@ class SubscriptionController extends GetxController {
   final Rx<DateTime?> expiresOn = Rx<DateTime?>(null);
   final RxBool isLoading = true.obs;
 
-  // Reactive plan flags
-  RxBool get isFree => (currentPlanId.value == 'free').obs;
-  RxBool get isPlus => (currentPlanId.value == 'plus').obs;
-  RxBool get isPremium => (currentPlanId.value == 'premium').obs;
-
   // Swipe limits per plan
   static const Map<String, int> swipeLimits = {
     'free': 10,
@@ -25,10 +20,43 @@ class SubscriptionController extends GetxController {
     'premium': -1, // -1 means unlimited
   };
 
+  // Super likes limits per month
+  static const Map<String, int> superLikesLimits = {
+    'free': 0,
+    'plus': 5,
+    'premium': 10,
+  };
+
   @override
   void onInit() {
     super.onInit();
     _initializeSubscriptionListener();
+  }
+
+  /// Check if user is on Free plan
+  bool get isFree => currentPlanId.value == 'free';
+
+  /// Check if user is on Plus plan
+  bool get isPlus => currentPlanId.value == 'plus';
+
+  /// Check if user is on Premium plan
+  bool get isPremium => currentPlanId.value == 'premium';
+
+  /// Check if user has any paid plan (Plus or Premium)
+  bool get hasPaidPlan => isPlus || isPremium;
+
+  /// Get current plan name
+  String get currentPlanName {
+    switch (currentPlanId.value) {
+      case 'free':
+        return 'Free';
+      case 'plus':
+        return 'Plus';
+      case 'premium':
+        return 'Premium';
+      default:
+        return 'Free';
+    }
   }
 
   /// Initialize real-time listener for user's subscription
@@ -68,12 +96,23 @@ class SubscriptionController extends GetxController {
 
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
-      final expires = (data['expires_on'] as Timestamp).toDate();
+      final planId = data['plan_id'] as String;
+      final expiresTimestamp = data['expires_on'];
+      
+      DateTime expires;
+      if (expiresTimestamp is Timestamp) {
+        expires = expiresTimestamp.toDate();
+      } else if (expiresTimestamp is int) {
+        expires = DateTime.fromMillisecondsSinceEpoch(expiresTimestamp);
+      } else {
+        continue;
+      }
       
       // Check if subscription is still active
       if (expires.isAfter(now)) {
+        // If this is a newer subscription or first valid one found
         if (latestExpiry == null || expires.isAfter(latestExpiry)) {
-          activePlan = data['plan_id'] as String;
+          activePlan = planId;
           latestExpiry = expires;
         }
       }
@@ -104,133 +143,58 @@ class SubscriptionController extends GetxController {
     }
   }
 
-  // ==================== FEATURE PERMISSION CHECKS ====================
-
-  /// Check if user can perform a swipe action
-  /// Returns true if within limit or has unlimited swipes
-  Future<bool> canSwipe() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return false;
-
-    final limit = swipeLimits[currentPlanId.value] ?? 0;
-    
-    // Premium users have unlimited swipes
-    if (limit == -1) return true;
-
-    // Check today's swipe count
-    final todaySwipes = await _getTodaySwipeCount(userId);
-    return todaySwipes < limit;
+  /// Get swipe limit for current plan
+  int getSwipeLimit() {
+    return swipeLimits[currentPlanId.value] ?? 10;
   }
 
-  /// Check if user can see who requested a match
-  bool canSeeLikes() {
-    return currentPlanId.value == 'plus' || currentPlanId.value == 'premium';
-  }
-
-  /// Check if user can send super likes
-  bool canSuperLike() {
+  /// Check if user has unlimited swipes
+  bool hasUnlimitedSwipes() {
     return currentPlanId.value == 'premium';
   }
 
-  /// Check if user can send more super likes this month
-  Future<bool> canSendSuperLike() async {
-    if (!canSuperLike()) return false;
-
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return false;
-
-    final monthSuperLikes = await _getMonthSuperLikeCount(userId);
-    return monthSuperLikes < 5; // 5 super likes per month limit
+  /// Get super likes limit for current plan
+  int getSuperLikesLimit() {
+    return superLikesLimits[currentPlanId.value] ?? 0;
   }
 
-  /// Get remaining swipes for today
-  Future<int> getRemainingSwipes() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return 0;
-
-    final limit = swipeLimits[currentPlanId.value] ?? 0;
-    if (limit == -1) return -1; // Unlimited
-
-    final todaySwipes = await _getTodaySwipeCount(userId);
-    final remaining = limit - todaySwipes;
-    return remaining > 0 ? remaining : 0;
+  /// Check if user can see who likes them
+  bool canSeeWhoLikesYou() {
+    return isPlus || isPremium;
   }
 
-  /// Get remaining super likes for this month
-  Future<int> getRemainingSuperLikes() async {
-    if (!canSuperLike()) return 0;
-
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return 0;
-
-    final monthSuperLikes = await _getMonthSuperLikeCount(userId);
-    final remaining = 5 - monthSuperLikes;
-    return remaining > 0 ? remaining : 0;
+  /// Check if user can see who super liked them
+  bool canSeeWhoSuperLikedYou() {
+    return isPlus || isPremium;
   }
 
-  /// Get daily swipe limit based on current plan
-  int getDailySwipeLimit() {
-    return swipeLimits[currentPlanId.value] ?? 0;
+  /// Check if user can see blocked/unblocked people
+  bool canSeeBlockedUsers() {
+    return isPremium;
   }
 
-  // ==================== PRIVATE HELPER METHODS ====================
-
-  /// Get today's swipe count for user
-  Future<int> _getTodaySwipeCount(String userId) async {
-    try {
-      final today = _getTodayDateString();
-      final doc = await _firestore
-          .collection('UserSwipes')
-          .doc(userId)
-          .collection('dates')
-          .doc(today)
-          .get();
-
-      if (!doc.exists) return 0;
-
-      final data = doc.data();
-      return (data?['count'] as int?) ?? 0;
-    } catch (e) {
-      print('Error getting swipe count: $e');
-      return 0;
-    }
+  /// Check if user has premium badge
+  bool hasPremiumBadge() {
+    return isPremium;
   }
 
-  /// Get this month's super like count for user
-  Future<int> _getMonthSuperLikeCount(String userId) async {
-    try {
-      final now = DateTime.now();
-      final firstDayOfMonth = DateTime(now.year, now.month, 1);
-      
-      final snapshot = await _firestore
-          .collection('SuperLikes')
-          .where('sender_id', isEqualTo: userId)
-          .where('super_liked_on', isGreaterThanOrEqualTo: Timestamp.fromDate(firstDayOfMonth))
-          .get();
-
-      return snapshot.docs.length;
-    } catch (e) {
-      print('Error getting super like count: $e');
-      return 0;
-    }
+  /// Check if user has priority support
+  bool hasPrioritySupport() {
+    return isPlus || isPremium;
   }
 
-  /// Get today's date as string in yyyy-MM-dd format
-  String _getTodayDateString() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-  }
-
-  /// Get formatted expiry date string
+  /// Get formatted expiry date string (dd/MM/yyyy)
   String? getExpiryDateFormatted() {
     if (expiresOn.value == null) return null;
     final date = expiresOn.value!;
-    return '${date.day}/${date.month}/${date.year}';
+    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   /// Get days remaining until expiry
   int? getDaysRemaining() {
     if (expiresOn.value == null) return null;
+    if (currentPlanId.value == 'free') return null; // Free plan never expires
+    
     final diff = expiresOn.value!.difference(DateTime.now());
     return diff.inDays;
   }
@@ -239,5 +203,43 @@ class SubscriptionController extends GetxController {
   bool isExpiringSoon() {
     final days = getDaysRemaining();
     return days != null && days <= 3 && days > 0;
+  }
+
+  /// Check if subscription has expired
+  bool isExpired() {
+    if (expiresOn.value == null) return false;
+    if (currentPlanId.value == 'free') return false;
+    
+    return expiresOn.value!.isBefore(DateTime.now());
+  }
+
+  /// Get subscription status message
+  String getSubscriptionStatusMessage() {
+    if (currentPlanId.value == 'free') {
+      return 'You are using Free plan';
+    }
+    
+    final days = getDaysRemaining();
+    if (days == null) return '$currentPlanName Plan';
+    
+    if (days <= 0) {
+      return '$currentPlanName Plan has expired';
+    } else if (days <= 3) {
+      return '$currentPlanName Plan - $days days left';
+    } else {
+      return '$currentPlanName Plan - Expires ${getExpiryDateFormatted()}';
+    }
+  }
+
+  /// Get plan color for UI
+  String getPlanColor() {
+    switch (currentPlanId.value) {
+      case 'plus':
+        return '#FFD700'; // Gold
+      case 'premium':
+        return '#9C27B0'; // Purple
+      default:
+        return '#757575'; // Gray
+    }
   }
 }

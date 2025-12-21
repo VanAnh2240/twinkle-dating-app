@@ -5,10 +5,10 @@ class SubscriptionPlansModel {
   final int duration_days;
 
   SubscriptionPlansModel({
-    required this.plan_id,
-    required this.plan_name,
-    required this.price,
-    required this.duration_days,
+    required this.plan_id, // 'free', 'plus', 'premium'
+    required this.plan_name, // 'Free', 'Plus', 'Premium'
+    required this.price, //0 , 199000, 399000
+    required this.duration_days, // 0, 30, 30
   });
 
   /// Convert to Firestore map

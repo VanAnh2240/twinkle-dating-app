@@ -14,13 +14,6 @@ class MatchPage extends StatelessWidget {
       appBar: _buildAppBar(),
       floatingActionButton: _buildSearchButton(),
       body: Obx(() {
-        // Debug info
-        print("🎨 Rendering MatchPage:");
-        print("   isLoading: ${controller.isLoading}");
-        print("   error: ${controller.error}");
-        print("   matches count: ${controller.matches.length}");
-        print("   filtered matches: ${controller.filteredMatches.length}");
-
         if (controller.isLoading) {
           return Center(
             child: Column(
@@ -79,12 +72,10 @@ class MatchPage extends StatelessWidget {
         final matches = controller.filteredMatches;
         final isSearching = controller.isSearchOpen.value && controller.searchQuery.isNotEmpty;
 
-        // Check if truly empty (no matches at all)
         if (controller.matches.isEmpty) {
           return _buildEmptyState();
         }
 
-        // If has matches but search returned nothing
         if (matches.isEmpty && isSearching) {
           return Column(
             children: [

@@ -2,158 +2,113 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:twinkle/services/payment/vnpay/vnpay_service.dart';
+import 'package:twinkle/services/payment/zalopay/zalopay_service.dart';
+import 'package:twinkle/models/payment_transactions_model.dart';
+import 'package:twinkle/models/user_subscriptions_model.dart';
+import 'package:twinkle/models/subscription_plans_model.dart';
 import 'package:twinkle/controllers/subscriptions_controller.dart';
-import 'package:twinkle/services/zalopay/zalopay_service.dart';
 
-/// Controller for managing payment transactions and subscription purchases
+/// Controller for managing payment transactions with multiple payment gateways
 class PaymentTransactionsController extends GetxController {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ZaloPayService _zaloPayService = ZaloPayService();
+  final VNPayService _vnPayService = VNPayService();
 
   // Reactive state
-  final RxList<Map<String, dynamic>> transactions = <Map<String, dynamic>>[].obs;
+  final RxList<PaymentTransactionsModel> transactions = <PaymentTransactionsModel>[].obs;
   final RxBool isLoading = false.obs;
   final RxBool isProcessingPayment = false.obs;
+  final RxString selectedPaymentMethod = 'zalopay'.obs; // 'zalopay' or 'vnpay'
+  
+  // Subscription plans cache
+  final RxMap<String, SubscriptionPlansModel> plans = <String, SubscriptionPlansModel>{}.obs;
   
   // Pending transaction info
-  String? _currentAppTransId;
+  String? _currentTxnRef;
   Map<String, dynamic>? _pendingTransactionData;
+  String? _currentPaymentMethod;
 
   @override
   void onInit() {
     super.onInit();
     loadTransactionHistory();
+    _loadSubscriptionPlans();
   }
 
-  /// Load user's transaction history from Firestore
+  /// Load subscription plans from Firestore
+  Future<void> _loadSubscriptionPlans() async {
+    try {
+      final snapshot = await _firestore.collection('SubscriptionPlans').get();
+      
+      for (var doc in snapshot.docs) {
+        final plan = SubscriptionPlansModel.fromMap(doc.data());
+        plans[plan.plan_id] = plan;
+      }
+    } catch (e) {
+      print('Error loading subscription plans: $e');
+    }
+  }
+
+  /// Load transaction history
   Future<void> loadTransactionHistory() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return;
+    final user_id = _auth.currentUser?.uid;
+    if (user_id == null) return;
 
     isLoading.value = true;
 
     try {
       final snapshot = await _firestore
           .collection('PaymentTransactions')
-          .where('user_id', isEqualTo: userId)
+          .where('user_id', isEqualTo: user_id)
           .orderBy('transaction_date', descending: true)
           .get();
 
-      transactions.value = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return {
-          'transaction_id': doc.id,
-          'amount': data['amount'],
-          'transaction_date': (data['transaction_date'] as Timestamp).toDate(),
-          'status': data['status'] ?? 'completed',
-          'payment_method': data['payment_method'] ?? 'zalopay',
-          'app_trans_id': data['app_trans_id'],
-        };
-      }).toList();
+      transactions.value = snapshot.docs
+          .map((doc) => PaymentTransactionsModel.fromMap(doc.data()))
+          .toList();
     } catch (e) {
       print('Error loading transactions: $e');
-      Get.snackbar(
-        'Lỗi',
-        'Không thể tải lịch sử giao dịch',
-        snackPosition: SnackPosition.BOTTOM,
-      );
     } finally {
       isLoading.value = false;
     }
   }
 
-  /// Main purchase flow
-  Future<bool> purchaseSubscription(String planId, int amount) async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) {
+  /// Main purchase flow with payment method selection
+  Future<bool> purchaseSubscription(
+    BuildContext context,
+    String plan_id,
+    int amount, {
+    String? paymentMethod,
+  }) async {
+    final user_id = _auth.currentUser?.uid;
+    if (user_id == null) {
       Get.snackbar(
-        'Lỗi',
-        'Vui lòng đăng nhập để tiếp tục',
+        'Error',
+        'Please login to continue',
         snackPosition: SnackPosition.BOTTOM,
       );
       return false;
     }
 
+    // Use selected payment method or default
+    final method = paymentMethod ?? selectedPaymentMethod.value;
+    _currentPaymentMethod = method;
+
     isProcessingPayment.value = true;
 
     try {
-      // Step 1: Create order
-      print('🛒 Step 1: Creating order...');
-      
-      final planName = _getPlanName(planId);
-      final orderResult = await _zaloPayService.createOrder(
-        planId: planId,
-        planName: planName,
-        amount: amount,
-        userId: userId,
-      );
-
-      if (!orderResult['success']) {
-        Get.snackbar(
-          'Lỗi',
-          orderResult['message'] ?? 'Không thể tạo đơn hàng',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent.withOpacity(0.2),
-        );
-        return false;
+      if (method == 'vnpay') {
+        return await _purchaseWithVNPay(context, plan_id, amount, user_id);
+      } else {
+        return await _purchaseWithZaloPay(plan_id, amount, user_id);
       }
-
-      print('✅ Order created: ${orderResult['appTransId']}');
-
-      // Save pending transaction
-      _currentAppTransId = orderResult['appTransId'];
-      _pendingTransactionData = {
-        'planId': planId,
-        'amount': amount,
-        'appTransId': _currentAppTransId,
-      };
-
-      // Step 2: Open ZaloPay app
-      print('🚀 Step 2: Opening ZaloPay app...');
-      
-      final launchResult = await _zaloPayService.openZaloPayApp(
-        orderResult['orderUrl'],
-      );
-
-      if (launchResult['needsInstall'] == true) {
-        Get.snackbar(
-          'Cài đặt ZaloPay',
-          'Vui lòng cài đặt ứng dụng ZaloPay từ CH Play/App Store',
-          snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
-          backgroundColor: Colors.orangeAccent.withOpacity(0.2),
-        );
-        return false;
-      }
-
-      if (!launchResult['success']) {
-        Get.snackbar(
-          'Lỗi',
-          launchResult['message'] ?? 'Không thể mở ZaloPay',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent.withOpacity(0.2),
-        );
-        return false;
-      }
-
-      print('✅ ZaloPay opened');
-
-      // Step 3: Show verification dialog
-      print('⏰ Step 3: Waiting for payment confirmation...');
-      
-      final shouldVerify = await _showPaymentVerificationDialog();
-
-      if (shouldVerify == true) {
-        return await _verifyAndActivateSubscription();
-      }
-
-      return false;
     } catch (e) {
-      print('❌ Error in purchase flow: $e');
+      print('Error in purchase flow: $e');
       Get.snackbar(
-        'Lỗi',
-        'Có lỗi xảy ra: $e',
+        'Error',
+        'Error in purchase flow: $e',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.redAccent.withOpacity(0.2),
       );
@@ -163,8 +118,194 @@ class PaymentTransactionsController extends GetxController {
     }
   }
 
-  /// Show dialog asking user if they completed payment
-  Future<bool?> _showPaymentVerificationDialog() async {
+  /// Purchase with ZaloPay
+  Future<bool> _purchaseWithZaloPay(String plan_id, int amount, String user_id) async {
+    print('Processing with ZaloPay...');
+
+    final plan = plans[plan_id];
+    final plan_name = plan?.plan_name ?? _getplan_nameFallback(plan_id);
+    
+    final orderResult = await _zaloPayService.createOrder(
+      plan_id: plan_id,
+      plan_name: plan_name,
+      amount: amount,
+      user_id: user_id,
+    );
+
+    if (!orderResult['success']) {
+      Get.snackbar(
+        'Error',
+        orderResult['message'] ?? 'Could not create order',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      );
+      return false;
+    }
+
+    _currentTxnRef = orderResult['appTransId'];
+    _pendingTransactionData = {
+      'plan_id': plan_id,
+      'amount': amount,
+      'txnRef': _currentTxnRef,
+      'paymentMethod': 'zalopay',
+    };
+
+    final launchResult = await _zaloPayService.openZaloPayApp(
+      orderResult['orderUrl'],
+    );
+
+    if (launchResult['needsInstall'] == true) {
+      Get.snackbar(
+        'Install ZaloPay',
+        'Please install the ZaloPay app to proceed with the payment.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+        backgroundColor: Colors.orangeAccent.withOpacity(0.2),
+      );
+      return false;
+    }
+
+    if (!launchResult['success']) {
+      Get.snackbar(
+        'Error',
+        launchResult['message'] ?? 'Could not open ZaloPay',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      );
+      return false;
+    }
+
+    final shouldVerify = await _showPaymentVerificationDialog('ZaloPay');
+    if (shouldVerify == true) {
+      return await _verifyZaloPayAndActivate();
+    }
+
+    return false;
+  }
+
+  /// Purchase with VNPay
+  Future<bool> _purchaseWithVNPay(
+    BuildContext context,
+    String plan_id,
+    int amount,
+    String user_id,
+  ) async {
+    print('Processing with VNPay...');
+
+    final plan = plans[plan_id];
+    final plan_name = plan?.plan_name ?? _getplan_nameFallback(plan_id);
+
+    // Store pending data before payment
+    _pendingTransactionData = {
+      'plan_id': plan_id,
+      'plan_name': plan_name,
+      'amount': amount,
+      'user_id': user_id,
+      'payment_method': 'vnpay',
+    };
+
+    try {
+      // Create payment and show VNPay WebView using package's built-in method
+      final paymentResult = await _vnPayService.createPaymentAndShow(
+        context: context,
+        plan_id: plan_id,
+        plan_name: plan_name,
+        amount: amount.toDouble(),
+        user_id: user_id,
+      );
+
+      print('Payment result: $paymentResult');
+
+      if (!paymentResult['success']) {
+        Get.snackbar(
+          'Error',
+          paymentResult['message'] ?? 'Could not create payment',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.redAccent.withOpacity(0.2),
+        );
+        return false;
+      }
+
+      // Check payment result
+      if (paymentResult['isPaid'] == true) {
+        _currentTxnRef = paymentResult['txnRef'];
+        
+        return await _activateSubscription(
+          txnRef: paymentResult['txnRef'],
+          amount: paymentResult['amount'],
+          paymentMethod: 'vnpay',
+          additionalData: {
+            'bank_code': paymentResult['bankCode'],
+            'transaction_no': paymentResult['transactionNo'],
+            'response_code': paymentResult['responseCode'],
+          },
+        );
+      } else {
+        Get.snackbar(
+          'Payment Failed',
+          paymentResult['message'] ?? 'Transaction unsuccessful',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orangeAccent.withOpacity(0.2),
+        );
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error in VNPay payment: $e');
+      Get.snackbar(
+        'Error',
+        'Error processing payment: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      );
+      return false;
+    }
+  }
+
+  /// Handle VNPay callback from deep link (if needed)
+  Future<bool> handleVNPayCallback(String callbackUrl) async {
+    try {
+      final params = _vnPayService.parseCallbackUrl(callbackUrl);
+      final result = _vnPayService.verifyCallback(params);
+
+      if (!result['success']) {
+        Get.snackbar(
+          'Error',
+          result['message'] ?? 'Verification failed',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.redAccent.withOpacity(0.2),
+        );
+        return false;
+      }
+
+      if (result['isPaid'] == true) {
+        return await _activateSubscription(
+          txnRef: result['txnRef'],
+          amount: result['amount'],
+          paymentMethod: 'vnpay',
+          additionalData: {
+            'bank_code': result['bankCode'],
+            'bank_tran_no': result['bankTranNo'],
+            'card_type': result['cardType'],
+            'transaction_no': result['transactionNo'],
+          },
+        );
+      } else {
+        Get.snackbar(
+          'Payment Failed',
+          result['message'] ?? 'Transaction unsuccessful',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.orangeAccent.withOpacity(0.2),
+        );
+        return false;
+      }
+    } catch (e) {
+      print('❌ Error handling callback: $e');
+      return false;
+    }
+  }
+
+  /// Show verification dialog
+  Future<bool?> _showPaymentVerificationDialog(String paymentMethodName) async {
     return await Get.dialog<bool>(
       WillPopScope(
         onWillPop: () async => false,
@@ -174,26 +315,28 @@ class PaymentTransactionsController extends GetxController {
             borderRadius: BorderRadius.circular(16),
           ),
           title: Row(
-            children: const [
+            children: [
               Icon(Icons.payment, color: Colors.pinkAccent, size: 28),
               SizedBox(width: 12),
-              Text(
-                'Xác nhận thanh toán',
-                style: TextStyle(color: Colors.white, fontSize: 18),
+              Expanded(
+                child: Text(
+                  'Confirm Payment',
+                  style: TextStyle(color: Colors.white, fontSize: 18),
+                ),
               ),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'Bạn đã hoàn tất thanh toán trong ZaloPay chưa?',
+                'Have you completed the payment via $paymentMethodName?',
                 style: TextStyle(color: Colors.white70, fontSize: 15),
               ),
               SizedBox(height: 12),
               Text(
-                'Sau khi thanh toán thành công, nhấn "Đã thanh toán" để kích hoạt gói.',
+                'After successful payment, click "Payment Complete" to activate your plan.',
                 style: TextStyle(color: Colors.white54, fontSize: 13),
               ),
             ],
@@ -201,12 +344,12 @@ class PaymentTransactionsController extends GetxController {
           actions: [
             TextButton(
               onPressed: () {
-                _currentAppTransId = null;
+                _currentTxnRef = null;
                 _pendingTransactionData = null;
                 Get.back(result: false);
               },
-              child: const Text(
-                'Hủy bỏ',
+              child: Text(
+                'Cancel',
                 style: TextStyle(color: Colors.white60),
               ),
             ),
@@ -214,13 +357,13 @@ class PaymentTransactionsController extends GetxController {
               onPressed: () => Get.back(result: true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.pinkAccent,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Text(
-                'Đã thanh toán',
+              child: Text(
+                'Payment Complete',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -231,20 +374,15 @@ class PaymentTransactionsController extends GetxController {
     );
   }
 
-  /// Verify payment and activate subscription
-  Future<bool> _verifyAndActivateSubscription() async {
-    if (_currentAppTransId == null || _pendingTransactionData == null) {
-      return false;
-    }
+  /// Verify ZaloPay payment
+  Future<bool> _verifyZaloPayAndActivate() async {
+    if (_currentTxnRef == null) return false;
 
     try {
-      print('🔍 Verifying payment...');
-      
-      // Show loading
       Get.dialog(
         WillPopScope(
           onWillPop: () async => false,
-          child: const Center(
+          child: Center(
             child: Card(
               color: Color(0xFF1E1E1E),
               child: Padding(
@@ -255,13 +393,8 @@ class PaymentTransactionsController extends GetxController {
                     CircularProgressIndicator(color: Colors.pinkAccent),
                     SizedBox(height: 16),
                     Text(
-                      'Đang xác minh thanh toán...',
+                      'Verifying payment...',
                       style: TextStyle(color: Colors.white),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Vui lòng đợi trong giây lát',
-                      style: TextStyle(color: Colors.white60, fontSize: 12),
                     ),
                   ],
                 ),
@@ -272,60 +405,91 @@ class PaymentTransactionsController extends GetxController {
         barrierDismissible: false,
       );
 
-      // Wait and query
       final queryResult = await _zaloPayService.waitForPaymentConfirmation(
-        _currentAppTransId!,
+        _currentTxnRef!,
         maxAttempts: 8,
-        interval: const Duration(seconds: 3),
+        interval: Duration(seconds: 3),
       );
 
-      // Close loading dialog
-      Get.back();
+      Get.back(); // Close loading
 
       if (!queryResult['success'] || queryResult['isPaid'] != true) {
         Get.snackbar(
-          'Xác minh thất bại',
-          queryResult['message'] ?? 'Không thể xác nhận thanh toán',
+          'Verification Failed',
+          queryResult['message'] ?? 'Could not confirm payment',
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Colors.orangeAccent.withOpacity(0.2),
-          duration: const Duration(seconds: 4),
         );
         return false;
       }
 
-      print('✅ Payment verified! Activating subscription...');
+      return await _activateSubscription(
+        txnRef: _currentTxnRef!,
+        amount: queryResult['amount'],
+        paymentMethod: 'zalopay',
+        additionalData: {
+          'zp_trans_id': queryResult['zpTransId'],
+        },
+      );
+    } catch (e) {
+      Get.back(); // Close loading if error
+      print('❌ Error verifying: $e');
+      return false;
+    }
+  }
 
-      // Activate subscription
-      final userId = _auth.currentUser?.uid;
-      if (userId == null) return false;
+  /// Activate subscription after successful payment
+  Future<bool> _activateSubscription({
+    required String txnRef,
+    required int amount,
+    required String paymentMethod,
+    Map<String, dynamic>? additionalData,
+  }) async {
+    try {
+      final user_id = _auth.currentUser?.uid;
+      if (user_id == null || _pendingTransactionData == null) return false;
 
-      // Create transaction record
-      final transactionRef = _firestore.collection('PaymentTransactions').doc();
-      await transactionRef.set({
-        'transaction_id': transactionRef.id,
-        'user_id': userId,
-        'amount': _pendingTransactionData!['amount'],
-        'transaction_date': FieldValue.serverTimestamp(),
-        'status': 'completed',
-        'payment_method': 'zalopay',
-        'app_trans_id': _currentAppTransId,
-        'zp_trans_id': queryResult['zpTransId'],
+      print('Activating subscription...');
+
+      final plan_id = _pendingTransactionData!['plan_id'];
+      final plan = plans[plan_id];
+      final durationDays = plan?.duration_days ?? 30;
+
+      // Create transaction record using Model
+      final transaction = PaymentTransactionsModel(
+        transaction_id: _firestore.collection('PaymentTransactions').doc().id,
+        user_id: user_id,
+        amount: amount.toDouble(),
+        transaction_date: DateTime.now(),
+        payment_method: paymentMethod,
+        status: 'success',
+      );
+
+      await _firestore
+          .collection('PaymentTransactions')
+          .doc(transaction.transaction_id)
+          .set({
+        ...transaction.toMap(),
+        'txn_ref': txnRef,
+        ...?additionalData,
       });
 
-      // Create subscription
-      final subscriptionRef = _firestore.collection('UserSubscriptions').doc();
+      // Create subscription using Model
       final now = DateTime.now();
-      final expiresOn = now.add(const Duration(days: 30));
+      final expiresOn = now.add(Duration(days: durationDays));
+      
+      final subscription = UserSubscriptionsModel(
+        subscription_id: _firestore.collection('UserSubscriptions').doc().id,
+        user_id: user_id,
+        plan_id: plan_id,
+        subscribed_on: now,
+        expires_on: expiresOn,
+      );
 
-      await subscriptionRef.set({
-        'subscription_id': subscriptionRef.id,
-        'user_id': userId,
-        'plan_id': _pendingTransactionData!['planId'],
-        'subscribed_on': Timestamp.fromDate(now),
-        'expires_on': Timestamp.fromDate(expiresOn),
-      });
-
-      print('🎉 Subscription activated!');
+      await _firestore
+          .collection('UserSubscriptions')
+          .doc(subscription.subscription_id)
+          .set(subscription.toMap());
 
       // Refresh data
       await loadTransactionHistory();
@@ -333,24 +497,23 @@ class PaymentTransactionsController extends GetxController {
       await subscriptionController.refreshSubscription();
 
       Get.snackbar(
-        'Thành công! 🎉',
-        'Gói đăng ký đã được kích hoạt',
+        'Success! 🎉',
+        'Subscription has been activated',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.greenAccent.withOpacity(0.2),
-        duration: const Duration(seconds: 3),
+        duration: Duration(seconds: 3),
       );
 
       // Clear pending
-      _currentAppTransId = null;
+      _currentTxnRef = null;
       _pendingTransactionData = null;
 
       return true;
     } catch (e) {
-      print('❌ Error verifying: $e');
-      Get.back(); // Close loading if still open
+      print('Error activating subscription: $e');
       Get.snackbar(
-        'Lỗi',
-        'Không thể kích hoạt gói đăng ký: $e',
+        'Error',
+        'Could not activate subscription',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.redAccent.withOpacity(0.2),
       );
@@ -358,8 +521,9 @@ class PaymentTransactionsController extends GetxController {
     }
   }
 
-  String _getPlanName(String planId) {
-    switch (planId) {
+  /// Fallback plan name if plans haven't loaded yet
+  String _getplan_nameFallback(String plan_id) {
+    switch (plan_id) {
       case 'plus':
         return 'Plus';
       case 'premium':
@@ -369,10 +533,12 @@ class PaymentTransactionsController extends GetxController {
     }
   }
 
+  // ==================== UTILITY METHODS ====================
+
   int getTotalSpent() {
     return transactions.fold<int>(
       0,
-      (sum, transaction) => sum + (transaction['amount'] as int),
+      (sum, transaction) => sum + transaction.amount.toInt(),
     );
   }
 
@@ -380,7 +546,7 @@ class PaymentTransactionsController extends GetxController {
 
   DateTime? getLastTransactionDate() {
     if (transactions.isEmpty) return null;
-    return transactions.first['transaction_date'] as DateTime;
+    return transactions.first.transaction_date;
   }
 
   bool hasPaymentHistory() => transactions.isNotEmpty;
@@ -397,21 +563,23 @@ class PaymentTransactionsController extends GetxController {
   }
 
   String getPaymentStatusMessage() {
-    if (transactions.isEmpty) return 'Chưa có giao dịch';
+    if (transactions.isEmpty) return 'No transactions';
 
     final lastDate = getLastTransactionDate();
-    if (lastDate == null) return 'Chưa có thanh toán gần đây';
+    if (lastDate == null) return 'No recent payments';
 
     final daysSince = DateTime.now().difference(lastDate).inDays;
     
     if (daysSince == 0) {
-      return 'Thanh toán thành công hôm nay';
+      return 'Payment successful today';
     } else if (daysSince == 1) {
-      return 'Thanh toán lần cuối hôm qua';
+      return 'Last payment yesterday';
     } else if (daysSince < 30) {
-      return 'Thanh toán lần cuối $daysSince ngày trước';
+      return 'Last payment $daysSince days ago';
     } else {
-      return 'Thanh toán lần cuối ${formatTransactionDate(lastDate)}';
+      return 'Last payment on ${formatTransactionDate(lastDate)}';
     }
   }
+
+  SubscriptionPlansModel? getPlanById(String plan_id) => plans[plan_id];
 }

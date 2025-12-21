@@ -55,7 +55,6 @@ class SubscriptionPage extends StatelessWidget {
                 isCurrentPlan: subscriptionController.currentPlanId.value == 'free',
                 isRecommended: false,
                 onTap: () {
-                  // Free plan - no action needed
                   Get.snackbar(
                     'Current Plan',
                     'You are already on the Free plan',
@@ -78,11 +77,11 @@ class SubscriptionPage extends StatelessWidget {
                 isCurrentPlan: subscriptionController.currentPlanId.value == 'plus',
                 isRecommended: false,
                 onTap: () async {
-                  _showPurchaseConfirmation(
+                  _showPurchaseDialog(
                     context,
                     'plus',
                     'Plus',
-                    200000,
+                    199000,
                     paymentController,
                   );
                 },
@@ -94,17 +93,13 @@ class SubscriptionPage extends StatelessWidget {
                 planName: 'Premium',
                 price: 400000,
                 features: [
-                  'Unlimited swipes',
-                  'See who likes you',
-                  '5 Super Likes per month',
-                  'Send unlimited messages',
-                  'Priority support',
-                  'Premium badge',
+                  '',
+                  ''
                 ],
                 isCurrentPlan: subscriptionController.currentPlanId.value == 'premium',
                 isRecommended: true,
                 onTap: () async {
-                  _showPurchaseConfirmation(
+                  _showPurchaseDialog(
                     context,
                     'premium',
                     'Premium',
@@ -220,7 +215,6 @@ class SubscriptionPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with badge
           if (isRecommended || isCurrentPlan)
             Container(
               width: double.infinity,
@@ -249,7 +243,6 @@ class SubscriptionPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Plan name and price
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -286,7 +279,6 @@ class SubscriptionPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Features list
                 ...features.map((feature) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Row(
@@ -311,7 +303,6 @@ class SubscriptionPage extends StatelessWidget {
                     )),
                 const SizedBox(height: 20),
 
-                // Action button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -349,7 +340,7 @@ class SubscriptionPage extends StatelessWidget {
     );
   }
 
-  void _showPurchaseConfirmation(
+  void _showPurchaseDialog(
     BuildContext context,
     String planId,
     String planName,
@@ -364,43 +355,200 @@ class SubscriptionPage extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: Text(
-            'Confirm Purchase',
-            style: const TextStyle(color: Colors.white),
+          title: const Text(
+            'Chọn phương thức thanh toán',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Gói: $planName',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Số tiền: ${_formatPrice(amount)} ₫',
+                style: const TextStyle(
+                  color: Colors.pinkAccent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ZaloPay option
+              _buildPaymentMethodButton(
+                icon: Icons.payment,
+                title: 'ZaloPay',
+                subtitle: 'Thanh toán qua ví ZaloPay',
+                color: Colors.blue,
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmPurchase(
+                    context,
+                    planId,
+                    planName,
+                    amount,
+                    paymentController,
+                    'zalopay',
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // VNPay option
+              _buildPaymentMethodButton(
+                icon: Icons.account_balance,
+                title: 'VNPay',
+                subtitle: 'Thanh toán qua ngân hàng',
+                color: Colors.orange,
+                onTap: () {
+                  Navigator.pop(context);
+                  _confirmPurchase(
+                    context,
+                    planId,
+                    planName,
+                    amount,
+                    paymentController,
+                    'vnpay',
+                  );
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Hủy',
+                style: TextStyle(color: Colors.white60),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPaymentMethodButton({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          border: Border.all(color: color.withOpacity(0.3)),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white38, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmPurchase(
+    BuildContext context,
+    String planId,
+    String planName,
+    int amount,
+    PaymentTransactionsController paymentController,
+    String paymentMethod,
+  ) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Xác nhận thanh toán',
+            style: TextStyle(color: Colors.white),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'You are about to purchase:',
-                style: const TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '$planName Plan',
+                'Gói: $planName',
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 18,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                '${_formatPrice(amount)} ₫/month',
+                'Số tiền: ${_formatPrice(amount)} ₫',
                 style: const TextStyle(
                   color: Colors.pinkAccent,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(height: 8),
+              Text(
+                'Phương thức: ${paymentMethod == 'zalopay' ? 'ZaloPay' : 'VNPay'}',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => Navigator.pop(context),
               child: const Text(
-                'Cancel',
+                'Hủy',
                 style: TextStyle(color: Colors.white60),
               ),
             ),
@@ -410,11 +558,13 @@ class SubscriptionPage extends StatelessWidget {
                     ? null
                     : () async {
                         final success = await paymentController.purchaseSubscription(
+                          context,
                           planId,
                           amount,
+                          paymentMethod: paymentMethod,
                         );
                         if (success) {
-                          Navigator.of(context).pop();
+                          Navigator.pop(context);
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -432,7 +582,7 @@ class SubscriptionPage extends StatelessWidget {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Confirm Purchase'),
+                    : const Text('Xác nhận'),
               );
             }),
           ],
