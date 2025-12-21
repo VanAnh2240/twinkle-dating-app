@@ -7,7 +7,7 @@ import 'package:twinkle/pages/match_page.dart';
 import 'package:twinkle/pages/profile/account_page.dart';
 import 'package:twinkle/pages/profile/my_profile_page.dart';
 import 'package:twinkle/pages/profile/profile_page.dart';
-import 'package:twinkle/pages/subscriptions_plan_page.dart';
+import 'package:twinkle/pages/subscriptions_page.dart';
 import 'package:twinkle/themes/theme.dart';
 
 class MainPage extends StatelessWidget {

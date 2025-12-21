@@ -4,10 +4,10 @@ import 'package:twinkle/controllers/chat_controller.dart';
 import 'package:twinkle/controllers/chatlist_controller.dart';
 import 'package:twinkle/controllers/home_controller.dart';
 import 'package:twinkle/controllers/match_controller.dart';
-import 'package:twinkle/controllers/payment_transactions_controller.dart';
+import 'package:twinkle/controllers/subscription/payment_transactions_controller.dart';
 import 'package:twinkle/controllers/profile_controller.dart';
 import 'package:twinkle/controllers/profile_setup_controller.dart';
-import 'package:twinkle/controllers/subscriptions_controller.dart';
+import 'package:twinkle/controllers/subscription/subscriptions_controller.dart';
 import 'package:twinkle/services/firestore_service.dart';
 
 class MainController extends GetxController {

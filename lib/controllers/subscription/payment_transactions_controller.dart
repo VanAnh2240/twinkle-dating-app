@@ -2,12 +2,12 @@ import 'package:get/get.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:twinkle/services/payment/vnpay/vnpay_service.dart';
-import 'package:twinkle/services/payment/zalopay/zalopay_service.dart';
+import 'package:twinkle/controllers/subscription/subscriptions_controller.dart';
 import 'package:twinkle/models/payment_transactions_model.dart';
 import 'package:twinkle/models/user_subscriptions_model.dart';
 import 'package:twinkle/models/subscription_plans_model.dart';
-import 'package:twinkle/controllers/subscriptions_controller.dart';
+import 'package:twinkle/services/subscription/vnpay/vnpay_service.dart';
+import 'package:twinkle/services/subscription/zalopay/zalopay_service.dart';
 
 /// Controller for managing payment transactions with multiple payment gateways
 class PaymentTransactionsController extends GetxController {
@@ -20,7 +20,7 @@ class PaymentTransactionsController extends GetxController {
   final RxList<PaymentTransactionsModel> transactions = <PaymentTransactionsModel>[].obs;
   final RxBool isLoading = false.obs;
   final RxBool isProcessingPayment = false.obs;
-  final RxString selectedPaymentMethod = 'zalopay'.obs; // 'zalopay' or 'vnpay'
+  final RxString selectedPaymentMethod = 'zalopay'.obs;
   
   // Subscription plans cache
   final RxMap<String, SubscriptionPlansModel> plans = <String, SubscriptionPlansModel>{}.obs;
@@ -84,15 +84,13 @@ class PaymentTransactionsController extends GetxController {
   }) async {
     final user_id = _auth.currentUser?.uid;
     if (user_id == null) {
-      Get.snackbar(
-        'Error',
-        'Please login to continue',
-        snackPosition: SnackPosition.BOTTOM,
+      _showErrorDialog(
+        'Login Required',
+        'Please login to continue with your purchase.',
       );
       return false;
     }
 
-    // Use selected payment method or default
     final method = paymentMethod ?? selectedPaymentMethod.value;
     _currentPaymentMethod = method;
 
@@ -106,11 +104,9 @@ class PaymentTransactionsController extends GetxController {
       }
     } catch (e) {
       print('Error in purchase flow: $e');
-      Get.snackbar(
-        'Error',
-        'Error in purchase flow: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      _showErrorDialog(
+        'Payment Error',
+        'An error occurred during payment process. Please try again.',
       );
       return false;
     } finally {
@@ -133,11 +129,9 @@ class PaymentTransactionsController extends GetxController {
     );
 
     if (!orderResult['success']) {
-      Get.snackbar(
-        'Error',
-        orderResult['message'] ?? 'Could not create order',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      _showErrorDialog(
+        'Order Creation Failed',
+        orderResult['message'] ?? 'Could not create order. Please try again.',
       );
       return false;
     }
@@ -155,25 +149,23 @@ class PaymentTransactionsController extends GetxController {
     );
 
     if (launchResult['needsInstall'] == true) {
-      Get.snackbar(
+      _showWarningDialog(
         'Install ZaloPay',
         'Please install the ZaloPay app to proceed with the payment.',
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-        backgroundColor: Colors.orangeAccent.withOpacity(0.2),
       );
       return false;
     }
 
     if (!launchResult['success']) {
-      Get.snackbar(
-        'Error',
-        launchResult['message'] ?? 'Could not open ZaloPay',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      _showErrorDialog(
+        'Launch Failed',
+        launchResult['message'] ?? 'Could not open ZaloPay app.',
       );
       return false;
     }
+
+    // Wait a bit for user to complete payment in ZaloPay app
+    await Future.delayed(const Duration(milliseconds: 500));
 
     final shouldVerify = await _showPaymentVerificationDialog('ZaloPay');
     if (shouldVerify == true) {
@@ -195,7 +187,6 @@ class PaymentTransactionsController extends GetxController {
     final plan = plans[plan_id];
     final plan_name = plan?.plan_name ?? _getplan_nameFallback(plan_id);
 
-    // Store pending data before payment
     _pendingTransactionData = {
       'plan_id': plan_id,
       'plan_name': plan_name,
@@ -205,7 +196,6 @@ class PaymentTransactionsController extends GetxController {
     };
 
     try {
-      // Create payment and show VNPay WebView using package's built-in method
       final paymentResult = await _vnPayService.createPaymentAndShow(
         context: context,
         plan_id: plan_id,
@@ -217,16 +207,13 @@ class PaymentTransactionsController extends GetxController {
       print('Payment result: $paymentResult');
 
       if (!paymentResult['success']) {
-        Get.snackbar(
-          'Error',
-          paymentResult['message'] ?? 'Could not create payment',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent.withOpacity(0.2),
+        _showErrorDialog(
+          'Payment Failed',
+          paymentResult['message'] ?? 'Could not create payment.',
         );
         return false;
       }
 
-      // Check payment result
       if (paymentResult['isPaid'] == true) {
         _currentTxnRef = paymentResult['txnRef'];
         
@@ -241,38 +228,32 @@ class PaymentTransactionsController extends GetxController {
           },
         );
       } else {
-        Get.snackbar(
-          'Payment Failed',
-          paymentResult['message'] ?? 'Transaction unsuccessful',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orangeAccent.withOpacity(0.2),
+        _showWarningDialog(
+          'Payment Unsuccessful',
+          paymentResult['message'] ?? 'Transaction was not completed.',
         );
         return false;
       }
     } catch (e) {
       print('❌ Error in VNPay payment: $e');
-      Get.snackbar(
-        'Error',
-        'Error processing payment: $e',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      _showErrorDialog(
+        'Payment Error',
+        'An error occurred while processing your payment.',
       );
       return false;
     }
   }
 
-  /// Handle VNPay callback from deep link (if needed)
+  /// Handle VNPay callback from deep link
   Future<bool> handleVNPayCallback(String callbackUrl) async {
     try {
       final params = _vnPayService.parseCallbackUrl(callbackUrl);
       final result = _vnPayService.verifyCallback(params);
 
       if (!result['success']) {
-        Get.snackbar(
-          'Error',
-          result['message'] ?? 'Verification failed',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.redAccent.withOpacity(0.2),
+        _showErrorDialog(
+          'Verification Failed',
+          result['message'] ?? 'Payment verification failed.',
         );
         return false;
       }
@@ -290,11 +271,9 @@ class PaymentTransactionsController extends GetxController {
           },
         );
       } else {
-        Get.snackbar(
+        _showWarningDialog(
           'Payment Failed',
-          result['message'] ?? 'Transaction unsuccessful',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orangeAccent.withOpacity(0.2),
+          result['message'] ?? 'Transaction was not successful.',
         );
         return false;
       }
@@ -304,7 +283,7 @@ class PaymentTransactionsController extends GetxController {
     }
   }
 
-  /// Show verification dialog
+  /// Show payment verification dialog
   Future<bool?> _showPaymentVerificationDialog(String paymentMethodName) async {
     return await Get.dialog<bool>(
       WillPopScope(
@@ -312,19 +291,15 @@ class PaymentTransactionsController extends GetxController {
         child: AlertDialog(
           backgroundColor: const Color(0xFF1E1E1E),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
-          title: Row(
-            children: [
-              Icon(Icons.payment, color: Colors.pinkAccent, size: 28),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Confirm Payment',
-                  style: TextStyle(color: Colors.white, fontSize: 18),
-                ),
-              ),
-            ],
+          title: const Text(
+            'Confirm Payment',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -332,12 +307,20 @@ class PaymentTransactionsController extends GetxController {
             children: [
               Text(
                 'Have you completed the payment via $paymentMethodName?',
-                style: TextStyle(color: Colors.white70, fontSize: 15),
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 15,
+                  height: 1.5,
+                ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text(
-                'After successful payment, click "Payment Complete" to activate your plan.',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
+                'After successful payment, tap "Payment Complete" to activate your plan.',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 13,
+                  height: 1.4,
+                ),
               ),
             ],
           ),
@@ -348,23 +331,32 @@ class PaymentTransactionsController extends GetxController {
                 _pendingTransactionData = null;
                 Get.back(result: false);
               },
-              child: Text(
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+              child: const Text(
                 'Cancel',
-                style: TextStyle(color: Colors.white60),
+                style: TextStyle(
+                  color: Colors.white60,
+                  fontSize: 15,
+                ),
               ),
             ),
             ElevatedButton(
               onPressed: () => Get.back(result: true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.pinkAccent,
-                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'Payment Complete',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -383,21 +375,36 @@ class PaymentTransactionsController extends GetxController {
         WillPopScope(
           onWillPop: () async => false,
           child: Center(
-            child: Card(
-              color: Color(0xFF1E1E1E),
-              child: Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.pinkAccent),
-                    SizedBox(height: 16),
-                    Text(
-                      'Verifying payment...',
-                      style: TextStyle(color: Colors.white),
+            child: Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.pinkAccent,
+                    strokeWidth: 3,
+                  ),
+                  SizedBox(height: 20),
+                  Text(
+                    'Verifying payment...',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Please wait',
+                    style: TextStyle(
+                      color: Colors.white38,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -408,17 +415,15 @@ class PaymentTransactionsController extends GetxController {
       final queryResult = await _zaloPayService.waitForPaymentConfirmation(
         _currentTxnRef!,
         maxAttempts: 8,
-        interval: Duration(seconds: 3),
+        interval: const Duration(seconds: 3),
       );
 
       Get.back(); // Close loading
 
       if (!queryResult['success'] || queryResult['isPaid'] != true) {
-        Get.snackbar(
+        _showWarningDialog(
           'Verification Failed',
-          queryResult['message'] ?? 'Could not confirm payment',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.orangeAccent.withOpacity(0.2),
+          queryResult['message'] ?? 'Could not confirm payment status.',
         );
         return false;
       }
@@ -455,7 +460,7 @@ class PaymentTransactionsController extends GetxController {
       final plan = plans[plan_id];
       final durationDays = plan?.duration_days ?? 30;
 
-      // Create transaction record using Model
+      // Create transaction record
       final transaction = PaymentTransactionsModel(
         transaction_id: _firestore.collection('PaymentTransactions').doc().id,
         user_id: user_id,
@@ -474,7 +479,7 @@ class PaymentTransactionsController extends GetxController {
         ...?additionalData,
       });
 
-      // Create subscription using Model
+      // Create subscription
       final now = DateTime.now();
       final expiresOn = now.add(Duration(days: durationDays));
       
@@ -496,12 +501,9 @@ class PaymentTransactionsController extends GetxController {
       final subscriptionController = Get.find<SubscriptionController>();
       await subscriptionController.refreshSubscription();
 
-      Get.snackbar(
-        'Success! 🎉',
-        'Subscription has been activated',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.greenAccent.withOpacity(0.2),
-        duration: Duration(seconds: 3),
+      _showSuccessDialog(
+        'Success!',
+        'Your subscription has been activated successfully.',
       );
 
       // Clear pending
@@ -511,17 +513,157 @@ class PaymentTransactionsController extends GetxController {
       return true;
     } catch (e) {
       print('Error activating subscription: $e');
-      Get.snackbar(
-        'Error',
-        'Could not activate subscription',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Colors.redAccent.withOpacity(0.2),
+      _showErrorDialog(
+        'Activation Failed',
+        'Could not activate subscription. Please contact support.',
       );
       return false;
     }
   }
 
-  /// Fallback plan name if plans haven't loaded yet
+  /// Show error dialog
+  void _showErrorDialog(String title, String message) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 15,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Get.back(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Close',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show warning dialog
+  void _showWarningDialog(String title, String message) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 15,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Get.back(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orangeAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'OK',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show success dialog
+  void _showSuccessDialog(String title, String message) {
+    Get.dialog(
+      AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 15,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Get.back(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.greenAccent,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Great!',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Fallback plan name
   String _getplan_nameFallback(String plan_id) {
     switch (plan_id) {
       case 'plus':
