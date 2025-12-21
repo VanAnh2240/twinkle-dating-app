@@ -36,7 +36,6 @@ class ChatListController extends GetxController{
   @override
   void onInit() {
     super.onInit();
-    print("🟢 ChatListController: onInit called");
     _loadChats();
     _loadUsers();
     _loadNotifications();
@@ -44,16 +43,12 @@ class ChatListController extends GetxController{
 
   void _loadChats() {
     final currentUserId = authController.user?.uid;
-    print("🟢 ChatListController: _loadChats - currentUserId: $currentUserId");
     
     if (currentUserId != null) {
       _allChats.bindStream(firestoreService.getUserChatsStream(currentUserId));
 
       ever(_allChats, (chats) {
-        print("🔵 ChatListController: _allChats changed - count: ${chats.length}");
         if (chats.isNotEmpty) {
-          print("🔵 First chat ID: ${chats.first.chat_id}");
-          print("🔵 First chat participants: ${chats.first.participants}");
         }
         
         if (_isSearching.value && _searchQuery.value.isNotEmpty) {
@@ -62,18 +57,14 @@ class ChatListController extends GetxController{
       });
 
       ever(_activeFilter, (_) {
-        print("🔵 ChatListController: _activeFilter changed to: $_activeFilter");
         if (_searchQuery.value.isNotEmpty) {
           _performSearch(_searchQuery.value);
         }
       });
-    } else {
-      print("🔴 ChatListController: currentUserId is NULL!");
-    }
+    } 
   }
   
   void _loadUsers() {
-    print("🟢 ChatListController: _loadUsers called");
     _users.bindStream(
       firestoreService.getAllUsersStream().map((userList) {
         print("🔵 ChatListController: Users loaded - count: ${userList.length}");
@@ -88,7 +79,6 @@ class ChatListController extends GetxController{
 
   void _loadNotifications() {
     final currentUserId = authController.user?.uid;
-    print("🟢 ChatListController: _loadNotifications - currentUserId: $currentUserId");
     
     if (currentUserId != null) {
       _notifications.bindStream(
@@ -102,10 +92,6 @@ class ChatListController extends GetxController{
     if (currentUserId != null) {
       final otherUserId = chat.getOtherParticipant(currentUserId);
       final user = _users[otherUserId];
-      
-      if (user == null) {
-        print("⚠️ ChatListController: User not found for ID: $otherUserId");
-      }
       
       return user;
     }
@@ -134,24 +120,18 @@ class ChatListController extends GetxController{
   List<ChatsModel> _getFilteredChats() {
     List<ChatsModel> baseList = _isSearching.value ? _filteredChats : _allChats;
     
-    print("🔵 _getFilteredChats: baseList count: ${baseList.length}, activeFilter: ${_activeFilter.value}");
-
     switch (_activeFilter.value) {
       case 'Unread':
         final result = _applyUnreadFilter(baseList);
-        print("🔵 _getFilteredChats: Unread filter result: ${result.length}");
         return result;
       case 'Recent':
         final result = _applyRecentFilter(baseList);
-        print("🔵 _getFilteredChats: Recent filter result: ${result.length}");
         return result;
       case 'Active':
         final result = _applyActiveFilter(baseList);
-        print("🔵 _getFilteredChats: Active filter result: ${result.length}");
         return result;
       case 'All':
       default:
-        print("🔵 _getFilteredChats: Returning all - ${baseList.length}");
         return baseList;
     }
   }
@@ -184,7 +164,6 @@ class ChatListController extends GetxController{
   }
 
   void setFilter(String filterType) {
-    print("🟢 setFilter: $filterType");
     _activeFilter.value = filterType;
 
     if (filterType == 'All') {
@@ -196,13 +175,11 @@ class ChatListController extends GetxController{
   }
 
   void clearAllFilters() {
-    print("🟢 clearAllFilters");
     _activeFilter.value = 'All';
     _clearSearch();
   }
 
   void onSearchChanged(String query) {
-    print("🟢 onSearchChanged: '$query'");
     _searchQuery.value = query;
     if (query.isEmpty) {
       _clearSearch();
@@ -214,8 +191,7 @@ class ChatListController extends GetxController{
 
   void _performSearch(String query) {
     final lowercaseQuery = query.toLowerCase().trim();
-    print("🔵 _performSearch: '$lowercaseQuery' in ${_allChats.length} chats");
-
+   
     _filteredChats.value = _allChats.where((chat) {
       final otherUser = getOtherUser(chat);
       if (otherUser == null) return false;
@@ -263,13 +239,11 @@ class ChatListController extends GetxController{
   }
   
   void _clearSearch() {
-    print("🟢 _clearSearch");
     _isSearching.value = false;
     _filteredChats.clear();
   }
 
   void clearSearch() {
-    print("🟢 clearSearch");
     _searchQuery.value = "";
     _clearSearch();
   }
@@ -315,25 +289,18 @@ class ChatListController extends GetxController{
     return getActiveChats().length;
   }
 
-  // ✅ FIXED: Truyền đúng key và value
   void openChat(ChatsModel chat) {
     final otherUser = getOtherUser(chat);
-    
-    print("🟢 openChat called:");
-    print("   chat_id: ${chat.chat_id}");
-    print("   otherUser: ${otherUser?.user_id}");
-    print("   otherUser name: ${otherUser?.first_name} ${otherUser?.last_name}");
-    
+      
     if (otherUser != null) {
       Get.toNamed(
         AppRoutes.chat,
         arguments: {
-          'chat_id': chat.chat_id,      // ✅ Đúng key
-          'other_user': otherUser,       // ✅ Truyền UsersModel object
+          'chat_id': chat.chat_id,     
+          'other_user': otherUser,      
         },
       );
     } else {
-      print("❌ openChat: otherUser is null!");
       Get.snackbar(
         "Error", 
         "Cannot load user information",
@@ -351,14 +318,11 @@ class ChatListController extends GetxController{
   }
 
   Future<void> refreshChats() async {
-    print("🟢 refreshChats");
     _isLoading.value = true;
     try {
       await Future.delayed(Duration(seconds: 1));
-      print("🔵 refreshChats: Complete");
     }catch(e) { 
       _error.value = 'Failed to refresh chats';
-      print("🔴 refreshChats error: ${e.toString()}");
     }finally {
       _isLoading.value = false;
     }
@@ -412,7 +376,6 @@ class ChatListController extends GetxController{
       }
 
     }catch (e){
-      print("🔴 deleteChat error: ${e.toString()}");
       Get.snackbar('Error', 'Failed to delete chat');
     }finally {
       _isLoading.value = false;
@@ -425,7 +388,6 @@ class ChatListController extends GetxController{
 
   @override
   void onClose() {
-    print("🔴 ChatListController: onClose");
     super.onClose();
   }
 }

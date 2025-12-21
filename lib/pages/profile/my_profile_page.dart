@@ -296,90 +296,103 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return Container(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Personal Values',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Choose qualities you value in a person',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                  SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _availableValues.map((value) {
-                      final isSelected = _values.contains(value);
-                      return GestureDetector(
-                        onTap: () {
-                          setModalState(() {
-                            if (isSelected) {
-                              _values.remove(value);
-                            } else {
-                              _values.add(value);
-                            }
-                          });
-                          setState(() {});
-                        },
-                        child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryColor : Colors.grey[800],
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected ? AppTheme.primaryColor : Colors.grey[700]!,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isSelected)
-                                Icon(Icons.check, color: Colors.white, size: 16),
-                              if (isSelected) SizedBox(width: 4),
-                              Text(
-                                value,
-                                style: TextStyle(color: Colors.white, fontSize: 14),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                return Container(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Personal Values',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      child: Text('Done', style: TextStyle(color: Colors.white, fontSize: 16)),
-                    ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Choose qualities you value in a person',
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                      ),
+                      SizedBox(height: 16),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _availableValues.map((value) {
+                              final isSelected = _values.contains(value);
+                              return GestureDetector(
+                                onTap: () {
+                                  setModalState(() {
+                                    if (isSelected) {
+                                      _values.remove(value);
+                                    } else {
+                                      _values.add(value);
+                                    }
+                                  });
+                                  setState(() {});
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? AppTheme.primaryColor : Colors.grey[800],
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isSelected ? AppTheme.primaryColor : Colors.grey[700]!,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (isSelected)
+                                        Icon(Icons.check, color: Colors.white, size: 16),
+                                      if (isSelected) SizedBox(width: 4),
+                                      Text(
+                                        value,
+                                        style: TextStyle(color: Colors.white, fontSize: 14),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text('Done', style: TextStyle(color: Colors.white, fontSize: 16)),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             );
           },
         );
@@ -395,49 +408,64 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: scrollController,
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final isSelected = _aboutMe[label] == option;
+                        return ListTile(
+                          onTap: () {
+                            setState(() {
+                              _aboutMe[label] = option;
+                            });
+                            Navigator.pop(context);
+                          },
+                          leading: Icon(
+                            isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                            color: isSelected ? AppTheme.primaryColor : Colors.grey,
+                          ),
+                          title: Text(
+                            option,
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                          trailing: isSelected
+                              ? Icon(Icons.check, color: AppTheme.primaryColor)
+                              : null,
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 16),
-              ...options.map((option) {
-                final isSelected = _aboutMe[label] == option;
-                return ListTile(
-                  onTap: () {
-                    setState(() {
-                      _aboutMe[label] = option;
-                    });
-                    Navigator.pop(context);
-                  },
-                  leading: Icon(
-                    isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: isSelected ? AppTheme.primaryColor : Colors.grey,
-                  ),
-                  title: Text(
-                    option,
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                  trailing: isSelected
-                      ? Icon(Icons.check, color: AppTheme.primaryColor)
-                      : null,
-                );
-              }).toList(),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -1320,4 +1348,3 @@ class _MyProfilePageState extends State<MyProfilePage> with SingleTickerProvider
     );
   }
 }
-

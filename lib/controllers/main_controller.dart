@@ -50,11 +50,14 @@ class MainController extends GetxController {
     _currentIndex.value = index;
   }
 
+  
   int getUnreadCount() {
-    try {
-      return 3;
-    } catch (e) {
-      return 0;
-    }
-  }
+     try {
+       final chatListController = Get.find<ChatListController>();
+       return chatListController.getUnreadCount();
+     } catch (e) {
+       print('Error getting unread count: $e');
+       return 0;
+     }
+   }
 }
