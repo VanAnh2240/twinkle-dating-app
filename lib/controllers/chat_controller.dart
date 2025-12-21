@@ -68,10 +68,8 @@ class ChatController extends GetxController {
       _chatID.value = arg['chat_id'] ?? '';
       _otherUser.value = arg['other_user'];
       
-      print("🔍 Chat initialized - ID: ${_chatID.value}, Other user: ${_otherUser.value?.user_id}");
       
       if (_otherUser.value == null) {
-        print("❌ Other user is null!");
         Get.snackbar("Error", "Cannot load chat user");
         return;
       }
@@ -133,7 +131,7 @@ class ChatController extends GetxController {
         await _firestoreService.restoreUnreadCount(_chatID.value, currentUserID);
       }
     } catch (e) {
-      print("❌ Error markUnReadMessageAsRead: ${e.toString()}");
+      print("Error markUnReadMessageAsRead: ${e.toString()}");
     }
   }
 
@@ -169,7 +167,6 @@ class ChatController extends GetxController {
       }
     } catch (e) {
       _error.value = e.toString();
-      print("❌ Error deleting chat: $e");
       Get.snackbar("Error", "Failed to delete chat");
     } finally {
       _isLoading.value = false;
@@ -185,8 +182,6 @@ class ChatController extends GetxController {
     final otherUserID = _otherUser.value?.user_id;
     final text = messageController.text.trim();
 
-    print("🔍 Sending message - Current: $currentUserID, Other: $otherUserID, Text length: ${text.length}");
-
     if (currentUserID == null || otherUserID == null || text.isEmpty) {
       Get.snackbar("Error", 'You cannot send messages to this user');
       return;
@@ -199,8 +194,7 @@ class ChatController extends GetxController {
       final isBlocked = await _firestoreService.isUserBlocked(currentUserID, otherUserID);
       final isUnmatched = await _firestoreService.isUserUnmatched(currentUserID, otherUserID);
       
-      print("🔍 Block status: $isBlocked, Unmatch status: $isUnmatched");
-
+      
       if (isBlocked || isUnmatched) {
         Get.snackbar("Error", 'You cannot send messages to this user anymore');
         messageController.text = text; // Restore text
@@ -218,14 +212,11 @@ class ChatController extends GetxController {
         sent_at: DateTime.now()
       );
 
-      print("📤 Attempting to send message: ${message.message_id}");
       await _firestoreService.sendMessage(message);
-      print("✅ Message sent successfully");
-
+      
       _isTyping.value = false;
 
     } catch (e) {
-      print("❌ Error sending message: $e");
       Get.snackbar("Error", 'Failed to send message: ${e.toString()}');
       messageController.text = text; // Restore text on error
     } finally {
@@ -240,7 +231,7 @@ class ChatController extends GetxController {
       try {
         await _firestoreService.restoreChatForUser(_chatID.value, currentUserID);
       } catch (e) {
-        print("❌ Error marking messages as read: $e");
+        print("Error marking messages as read: $e");
       }
     }
   }
