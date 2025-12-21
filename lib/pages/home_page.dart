@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:appinio_swiper/appinio_swiper.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -682,6 +683,15 @@ class _ProfileCardState extends State<_ProfileCard> {
     super.dispose();
   }
 
+  // Helper method to get ImageProvider for any photo URL
+  ImageProvider _getImageProvider(String photoUrl) {
+    if (photoUrl.startsWith('http://') || photoUrl.startsWith('https://')) {
+      return NetworkImage(photoUrl);
+    } else {
+      return FileImage(File(photoUrl));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = widget.user;
@@ -711,44 +721,25 @@ class _ProfileCardState extends State<_ProfileCard> {
                       Container(
                         height: 500,
                         width: double.infinity,
-                        child: mainPhoto.isNotEmpty
-                            ? Image.network(
-                                mainPhoto,
-                                fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Container(
-                                    color: Colors.grey[900],
-                                    child: Center(
-                                      child: CircularProgressIndicator(
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                            : null,
-                                        color: Colors.blueAccent,
-                                      ),
-                                    ),
-                                  );
-                                },
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Container(
-                                    color: Colors.grey[800],
-                                    child: const Icon(
-                                      Icons.person,
-                                      size: 100,
-                                      color: Colors.white38,
-                                    ),
-                                  );
-                                },
+                        decoration: mainPhoto.isNotEmpty
+                            ? BoxDecoration(
+                                image: DecorationImage(
+                                  image: _getImageProvider(mainPhoto),
+                                  fit: BoxFit.cover,
+                                ),
                               )
-                            : Container(
+                            : BoxDecoration(
                                 color: Colors.grey[800],
-                                child: const Icon(
+                              ),
+                        child: mainPhoto.isEmpty
+                            ? const Center(
+                                child: Icon(
                                   Icons.person,
                                   size: 100,
                                   color: Colors.white38,
                                 ),
-                              ),
+                              )
+                            : null,
                       ),
                       
                       Positioned(
@@ -909,17 +900,19 @@ class _ProfileCardState extends State<_ProfileCard> {
                         if (photos.length > 1)
                           ...photos.sublist(1).map((photo) => Padding(
                             padding: const EdgeInsets.only(bottom: 16),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Image.network(
-                                photo,
-                                height: 300,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  height: 300,
-                                  color: Colors.grey[800],
-                                  child: const Icon(Icons.broken_image, color: Colors.grey, size: 50),
+                            child: Container(
+                              height: 300,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                image: DecorationImage(
+                                  image: _getImageProvider(photo),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  color: Colors.transparent,
                                 ),
                               ),
                             ),
